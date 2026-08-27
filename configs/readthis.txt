@@ -1,0 +1,5 @@
+note to devs:
+
+this will contain the following
+ - dialogs  
+ - (add more)

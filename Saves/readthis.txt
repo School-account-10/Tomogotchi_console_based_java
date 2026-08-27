@@ -1,0 +1,6 @@
+note to devs:
+
+this will contain the following
+ - when starting it will create a folder
+ - after folder creation use name of the pet set in [menu] to create a json ex. oliver.json
+ - after that values will be stored there ex. health, hunger rate, current level, rng.. etc
