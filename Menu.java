@@ -28,6 +28,7 @@ public class Menu {
                 case "1":
                     System.out.println("Starting new pet...");
                     BPI.newplayerdisplay();
+                   
                     break;
                 case "2":
                     
