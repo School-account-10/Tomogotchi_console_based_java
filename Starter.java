@@ -1,3 +1,5 @@
+import java.time.LocalDateTime;
+
 
 public class Starter {
 
@@ -9,6 +11,7 @@ public class Starter {
         public boolean ispetexisting;
         public int hunger;
         public int happiness;
+        public LocalDateTime lastSeen;
 
     }
 
