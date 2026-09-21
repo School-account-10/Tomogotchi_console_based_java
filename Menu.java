@@ -1,11 +1,6 @@
 import java.util.Scanner;
 
-
-
 public class Menu {
-    
-
-  
 
     public static void show() {
 
@@ -13,8 +8,7 @@ public class Menu {
         Starter.pet myPet = new Starter.pet();
         NewGame NG = new NewGame();
         NewGame.BasicPetInfo BPI = NG.new BasicPetInfo();
-        SavingSystem SVSYS = new SavingSystem();
-       
+
         boolean isrunning = myPet.running;
 
         while (isrunning) {
@@ -30,11 +24,9 @@ public class Menu {
                 case "1":
                     System.out.println("Starting new pet...");
                     BPI.newplayerdisplay();
-                    SVSYS.OSDetection();
-                   
                     break;
                 case "2":
-                    
+
                     System.out.println("Loading pet...");
                     break;
                 case "3":

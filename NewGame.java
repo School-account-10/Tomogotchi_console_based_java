@@ -5,6 +5,7 @@ import java.time.Duration;
 
 public class NewGame {
     Scanner GameSC = new Scanner(System.in);
+    SavingSystem SVSYS = new SavingSystem();
     Starter.pet iniVariables = new Starter.pet();
     boolean running = iniVariables.running = true;
     RandomGenerator RDM = RandomGenerator.getDefault();
@@ -29,7 +30,11 @@ public class NewGame {
             } while (justrancheck == true);
 
             pet_name();
-            display_all_Finalinfo(); // for debuging only
+            display_all_Finalinfo();
+            SVSYS.OSDetection(); // ALWAYS MAKE SURE YOU RUN METHOD BEFORE TRYING TO PRINT ITS OUTPUT
+            // System.out.println("OS: "+SVSYS.COS); // IT GETS PASSED NICE
+           
+            // for debuging only
 
         }
 
