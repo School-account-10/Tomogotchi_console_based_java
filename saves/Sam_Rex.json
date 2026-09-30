@@ -1,0 +1,13 @@
+{
+  "petName": "Rex",
+  "petId": 25512,
+  "hunger": 88,
+  "happiness": 77,
+  "lastSeen": "2026-09-30T13:47:04.398987954",
+  "ispetexisting": true,
+  "ownerName": "Sam",
+  "petType": "dog",
+  "hearts": 5,
+  "correctAnswers": 0,
+  "stage": "Baby"
+}

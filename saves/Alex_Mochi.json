@@ -1,0 +1,13 @@
+{
+  "petName": "Mochi",
+  "petId": 42747,
+  "hunger": 100,
+  "happiness": 94,
+  "lastSeen": "2026-09-30T12:37:22.566625199",
+  "ispetexisting": true,
+  "ownerName": "Alex",
+  "petType": "",
+  "hearts": 0,
+  "correctAnswers": 0,
+  "stage": "egg"
+}

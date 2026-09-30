@@ -1,0 +1,5 @@
+{
+  "blockedNames": ["stupid", "idiot", "dumb", "hate", "kill", "ugly", "crap", "jerk", "loser", "trash"],
+  "minNameLength": 2,
+  "maxNameLength": 15
+}

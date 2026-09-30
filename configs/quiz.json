@@ -1,0 +1,19 @@
+{
+  "startHearts": 5,
+  "goalAnswers": 10,
+  "waitMinutes": 10,
+  "validPets": ["cat", "dog", "bunny", "bird"],
+  "blockedWords": ["stupid", "idiot", "dumb", "hate", "kill", "ugly"],
+  "questions": [
+    { "question": "What is 7 + 5?", "answer": "12" },
+    { "question": "Which animal says meow?", "answer": "cat" },
+    { "question": "How many days are in a week?", "answer": "7" },
+    { "question": "What color do you get from mixing blue and yellow?", "answer": "green" },
+    { "question": "What is 9 - 4?", "answer": "5" },
+    { "question": "What is 3 x 3?", "answer": "9" },
+    { "question": "Which planet do we live on?", "answer": "earth" },
+    { "question": "What is the opposite of hot?", "answer": "cold" },
+    { "question": "How many legs does a dog have?", "answer": "4" },
+    { "question": "Which shape has three sides?", "answer": "triangle" }
+  ]
+}

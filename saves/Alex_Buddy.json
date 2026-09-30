@@ -1,0 +1,13 @@
+{
+  "petName": "Buddy",
+  "petId": 25996,
+  "hunger": 78,
+  "happiness": 73,
+  "lastSeen": "2026-09-30T13:47:01.008974171",
+  "ispetexisting": true,
+  "ownerName": "Alex",
+  "petType": "cat",
+  "hearts": 5,
+  "correctAnswers": 0,
+  "stage": "Baby"
+}

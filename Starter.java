@@ -12,6 +12,11 @@ public class Starter {
         public int hunger;
         public int happiness;
         public LocalDateTime lastSeen;
+        public String ownerName;
+        public String petType;
+        public int hearts;
+        public int correctAnswers;
+        public String stage;
 
     }
 
