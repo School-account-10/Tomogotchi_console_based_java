@@ -2,7 +2,6 @@ import java.util.Scanner;
 import java.util.List;
 import java.util.Map;
 import java.time.LocalDateTime;
-import java.time.Duration;
 
 public class MainPetmenu {
     private static Scanner scanner = new Scanner(System.in);
@@ -64,7 +63,6 @@ public class MainPetmenu {
         pet.ownerName = scanner.nextLine();
         System.out.println("Nice to meet you, " + pet.ownerName + "!");
 
-        // Pet type selection
         String quizJson = savingSystem.loadConfig("quiz.json");
         List<String> validPets = savingSystem.extractJsonStringArray(quizJson, "validPets");
 
@@ -89,16 +87,13 @@ public class MainPetmenu {
             }
         }
 
-        // Load personality for chosen pet type
         currentPersonality = savingSystem.extractPetPersonality(pet.petType);
         
-        // Show pet greeting
         String greeting = (String) currentPersonality.get("greeting");
         if (greeting != null && !greeting.isEmpty()) {
             System.out.println("\n" + greeting);
         }
 
-        // Pet name selection
         String namesDbJson = savingSystem.loadConfig("namesdb.json");
         List<String> blockedWords = savingSystem.extractJsonStringArray(namesDbJson, "blockedNames");
         int minLen = 2;
@@ -128,7 +123,6 @@ public class MainPetmenu {
             }
         }
 
-        // Initialize pet stats
         pet.hunger = (int) (Math.random() * 31) + 70;
         pet.happiness = (int) (Math.random() * 31) + 70;
         pet.petId = (int) (Math.random() * 99999) + 1;
@@ -170,8 +164,6 @@ public class MainPetmenu {
                 if (loadedPet != null) {
                     System.out.println("Pet loaded successfully!");
                     currentPet = loadedPet;
-                    // Load personality for loaded pet
-                    String quizJson = savingSystem.loadConfig("quiz.json");
                     currentPersonality = savingSystem.extractPetPersonality(loadedPet.petType);
                     gameLoop();
                 }

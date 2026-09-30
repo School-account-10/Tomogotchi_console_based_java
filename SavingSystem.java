@@ -91,7 +91,6 @@ public class SavingSystem {
         if (petStart == -1) return personality;
         petStart += petSearch.length();
         
-        // Find matching closing brace
         int braceCount = 1;
         int i = petStart;
         while (i < personalitiesJson.length() && braceCount > 0) {
@@ -104,13 +103,11 @@ public class SavingSystem {
         
         String petJson = personalitiesJson.substring(petStart, i - 1);
         
-        // Extract simple fields
         personality.put("greeting", extractJsonString(petJson, "greeting"));
         personality.put("feedReaction", extractJsonString(petJson, "feedReaction"));
         personality.put("playReaction", extractJsonString(petJson, "playReaction"));
         personality.put("evolutionMessage", extractJsonString(petJson, "evolutionMessage"));
         
-        // Extract array fields
         personality.put("traits", extractJsonStringArray(petJson, "traits"));
         personality.put("likes", extractJsonStringArray(petJson, "likes"));
         personality.put("dislikes", extractJsonStringArray(petJson, "dislikes"));

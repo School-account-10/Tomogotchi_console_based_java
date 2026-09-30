@@ -1,10 +1,8 @@
 import java.time.LocalDateTime;
 
-
 public class Starter {
 
-    public static class pet { //
-        // make pet variables // add more here
+    public static class pet {
         public String petName;
         public int petId;
         public boolean running = true;
@@ -17,11 +15,9 @@ public class Starter {
         public int hearts;
         public int correctAnswers;
         public String stage;
-
     }
 
     public static void main(String[] args) {
         Menu.show();
     }
-
 }

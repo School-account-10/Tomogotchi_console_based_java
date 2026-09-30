@@ -1,36 +1,36 @@
 {
   "cat": {
     "greeting": "Meow~ Oh, a new human? *stretches* I suppose I'll allow you to take care of me.",
-    "traits": ["independent", "curious", "clean", "sassy"],
-    "likes": ["naps in sunbeams", "chasing laser dots", "knocking things off tables"],
-    "dislikes": ["water", "loud noises", "being ignored"],
+    "traits": ["independent", "curious", "sassy", "aloof", "clean"],
+    "likes": ["naps in sunbeams", "chasing laser dots", "knocking things off tables", "cardboard boxes"],
+    "dislikes": ["water", "loud noises", "being ignored", "baths"],
     "feedReaction": "*purrs* Not bad, human. Not bad at all.",
     "playReaction": "*pounces* Got it! ...wait, where'd it go?",
     "evolutionMessage": "Your cat has matured into a majestic feline! *proud meow*"
   },
   "dog": {
     "greeting": "WOOF WOOF! Hi hi hi! You're my new best friend! *wags tail furiously*",
-    "traits": ["loyal", "energetic", "playful", "affectionate"],
-    "likes": ["fetch", "belly rubs", "walks", "treats"],
-    "dislikes": ["being alone", "vacuum cleaners", "baths"],
+    "traits": ["loyal", "energetic", "playful", "affectionate", "friendly"],
+    "likes": ["fetch", "belly rubs", "walks", "treats", "cuddles"],
+    "dislikes": ["being alone", "vacuum cleaners", "baths", "thunderstorms"],
     "feedReaction": "OMG FOOD! *gobble gobble* Best day ever! *wags*",
     "playReaction": "BALL! BALL! BALL! *zoomies* I LOVE THIS GAME!",
     "evolutionMessage": "Your puppy has grown into a noble companion! *happy bark*"
   },
   "bunny": {
     "greeting": "*twitches nose* Oh... hello there. *hops closer* You seem... okay.",
-    "traits": ["gentle", "timid", "curious", "soft"],
-    "likes": ["carrots", "leafy greens", "quiet corners", "head pats"],
-    "dislikes": ["sudden movements", "loud sounds", "being picked up"],
+    "traits": ["gentle", "timid", "curious", "soft", "social"],
+    "likes": ["carrots", "leafy greens", "quiet corners", "head pats", "digging"],
+    "dislikes": ["sudden movements", "loud sounds", "being picked up", "loneliness"],
     "feedReaction": "*nibble nibble* Mmm... crunchy. Thank you... *twitch*",
     "playReaction": "*binky* Whee! *hops in circles* This is... fun.",
     "evolutionMessage": "Your bunny has blossomed into a confident hopper! *joyful binky*"
   },
   "bird": {
     "greeting": "CHIRP! *flutters wings* A new friend? TWEET! I'll sing for you!",
-    "traits": ["chatty", "musical", "social", "bright"],
-    "likes": ["seeds", "mirrors", "singing along", "shiny things"],
-    "dislikes": ["darkness", "silence", "cold drafts"],
+    "traits": ["chatty", "musical", "social", "bright", "intelligent"],
+    "likes": ["seeds", "mirrors", "singing along", "shiny things", "puzzles"],
+    "dislikes": ["darkness", "silence", "cold drafts", "being ignored"],
     "feedReaction": "CHIRP CHIRP! *pecks happily* Delicious! Want a song?",
     "playReaction": "LA LA LA~ *dances on perch* Listen to my melody!",
     "evolutionMessage": "Your bird has become a magnificent songster! *beautiful trill*"
