@@ -9,35 +9,36 @@ import java.util.Map;
 import java.util.HashMap;
 
 public class SavingSystem {
-    Starter.pet iniVariables = new Starter.pet();
-    Path AppdataDirectory;
-    String COS;
-    String name = "saves";
-    Path configsDirectory;
 
-    public String OSDetection() {
-        COS = System.getProperty("os.name");
-        COS = COS.replaceAll("\\s+", "").toLowerCase();
-        FileSYS();
-        return COS;
+    private static final String SAVE_FOLDER = "saves";
+
+    private String osName;
+    private Path saveDirectory;
+    private Path configsDirectory;
+
+    public String detectOperatingSystem() {
+        osName = System.getProperty("os.name");
+        osName = osName.replaceAll("\\s+", "").toLowerCase();
+        getSaveDirectory();
+        return osName;
     }
 
-    public Path FileSYS() {
-        if (COS == null) OSDetection();
-        if (COS.contains("linux") || COS.contains("mac") || COS.contains("win")) {
-            AppdataDirectory = Paths.get(System.getProperty("user.dir"), name);
+    public Path getSaveDirectory() {
+        if (osName == null) detectOperatingSystem();
+        if (osName.contains("linux") || osName.contains("mac") || osName.contains("win")) {
+            saveDirectory = Paths.get(System.getProperty("user.dir"), SAVE_FOLDER);
             try {
-                Files.createDirectories(AppdataDirectory);
-                return AppdataDirectory;
+                Files.createDirectories(saveDirectory);
+                return saveDirectory;
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
-        return AppdataDirectory;
+        return saveDirectory;
     }
 
     public Path getConfigsDir() {
-        if (COS == null) OSDetection();
+        if (osName == null) detectOperatingSystem();
         configsDirectory = Paths.get(System.getProperty("user.dir"), "configs");
         try {
             Files.createDirectories(configsDirectory);
@@ -84,13 +85,13 @@ public class SavingSystem {
     public Map<String, Object> extractPetPersonality(String petType) {
         String personalitiesJson = loadConfig("personalities.json");
         if (personalitiesJson == null) return new HashMap<>();
-        
+
         Map<String, Object> personality = new HashMap<>();
         String petSearch = "\"" + petType + "\": {";
         int petStart = personalitiesJson.indexOf(petSearch);
         if (petStart == -1) return personality;
         petStart += petSearch.length();
-        
+
         int braceCount = 1;
         int i = petStart;
         while (i < personalitiesJson.length() && braceCount > 0) {
@@ -100,18 +101,18 @@ public class SavingSystem {
             i++;
         }
         if (braceCount != 0) return personality;
-        
+
         String petJson = personalitiesJson.substring(petStart, i - 1);
-        
+
         personality.put("greeting", extractJsonString(petJson, "greeting"));
         personality.put("feedReaction", extractJsonString(petJson, "feedReaction"));
         personality.put("playReaction", extractJsonString(petJson, "playReaction"));
         personality.put("evolutionMessage", extractJsonString(petJson, "evolutionMessage"));
-        
+
         personality.put("traits", extractJsonStringArray(petJson, "traits"));
         personality.put("likes", extractJsonStringArray(petJson, "likes"));
         personality.put("dislikes", extractJsonStringArray(petJson, "dislikes"));
-        
+
         return personality;
     }
 
@@ -151,38 +152,40 @@ public class SavingSystem {
         return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
-    public void savePet(Starter.pet pet) {
-        OSDetection();
-        Path saveDir = FileSYS();
+    public void savePet(Starter.Pet pet) {
+        detectOperatingSystem();
+        Path saveDir = getSaveDirectory();
         String safeOwner = pet.ownerName != null ? pet.ownerName.replaceAll("[^a-zA-Z0-9]", "_") : "unknown";
         String safePet = pet.petName != null ? pet.petName.replaceAll("[^a-zA-Z0-9]", "_") : "pet";
         Path saveFile = saveDir.resolve(safeOwner + "_" + safePet + ".json");
 
-        String json = "{\n" +
-            "  \"petName\": \"" + escapeJson(pet.petName) + "\",\n" +
-            "  \"petId\": " + pet.petId + ",\n" +
-            "  \"hunger\": " + pet.hunger + ",\n" +
-            "  \"happiness\": " + pet.happiness + ",\n" +
-            "  \"lastSeen\": \"" + pet.lastSeen + "\",\n" +
-            "  \"ispetexisting\": " + pet.ispetexisting + ",\n" +
-            "  \"ownerName\": \"" + escapeJson(pet.ownerName != null ? pet.ownerName : "") + "\",\n" +
-            "  \"petType\": \"" + escapeJson(pet.petType != null ? pet.petType : "") + "\",\n" +
-            "  \"hearts\": " + pet.hearts + ",\n" +
-            "  \"correctAnswers\": " + pet.correctAnswers + ",\n" +
-            "  \"stage\": \"" + escapeJson(pet.stage != null ? pet.stage : "egg") + "\"\n" +
-            "}";
-
         try {
-            Files.write(saveFile, json.getBytes());
+            Files.write(saveFile, buildPetJson(pet).getBytes());
             System.out.println("Pet saved successfully! File: " + saveFile.getFileName());
         } catch (IOException e) {
             System.out.println("Error saving pet: " + e.getMessage());
         }
     }
 
-    public Starter.pet loadPet(String filename) {
-        OSDetection();
-        Path saveDir = FileSYS();
+    private String buildPetJson(Starter.Pet pet) {
+        return "{\n" +
+            "  \"petName\": \"" + escapeJson(pet.petName) + "\",\n" +
+            "  \"petId\": " + pet.petId + ",\n" +
+            "  \"hunger\": " + pet.hunger + ",\n" +
+            "  \"happiness\": " + pet.happiness + ",\n" +
+            "  \"lastSeen\": \"" + pet.lastSeen + "\",\n" +
+            "  \"ispetexisting\": " + pet.isPetExisting + ",\n" +
+            "  \"ownerName\": \"" + escapeJson(pet.ownerName != null ? pet.ownerName : "") + "\",\n" +
+            "  \"petType\": \"" + escapeJson(pet.petType != null ? pet.petType : "") + "\",\n" +
+            "  \"hearts\": " + pet.hearts + ",\n" +
+            "  \"correctAnswers\": " + pet.correctAnswers + ",\n" +
+            "  \"stage\": \"" + escapeJson(pet.stage != null ? pet.stage : "egg") + "\"\n" +
+            "}";
+    }
+
+    public Starter.Pet loadPet(String filename) {
+        detectOperatingSystem();
+        Path saveDir = getSaveDirectory();
         Path saveFile = saveDir.resolve(filename);
 
         if (!Files.exists(saveFile)) {
@@ -192,18 +195,7 @@ public class SavingSystem {
 
         try {
             String content = new String(Files.readAllBytes(saveFile));
-            Starter.pet pet = new Starter.pet();
-            pet.petName = extractJsonString(content, "petName");
-            pet.petId = extractJsonInt(content, "petId");
-            pet.hunger = extractJsonInt(content, "hunger");
-            pet.happiness = extractJsonInt(content, "happiness");
-            pet.lastSeen = LocalDateTime.parse(extractJsonString(content, "lastSeen"));
-            pet.ispetexisting = extractJsonBoolean(content, "ispetexisting");
-            pet.ownerName = extractJsonString(content, "ownerName");
-            pet.petType = extractJsonString(content, "petType");
-            pet.hearts = extractJsonInt(content, "hearts");
-            pet.correctAnswers = extractJsonInt(content, "correctAnswers");
-            pet.stage = extractJsonString(content, "stage");
+            Starter.Pet pet = parsePetFromJson(content);
             System.out.println("Pet loaded: " + pet.petName + " (ID: " + pet.petId + ")");
             return pet;
         } catch (Exception e) {
@@ -212,9 +204,25 @@ public class SavingSystem {
         }
     }
 
+    private Starter.Pet parsePetFromJson(String content) {
+        Starter.Pet pet = new Starter.Pet();
+        pet.petName = extractJsonString(content, "petName");
+        pet.petId = extractJsonInt(content, "petId");
+        pet.hunger = extractJsonInt(content, "hunger");
+        pet.happiness = extractJsonInt(content, "happiness");
+        pet.lastSeen = LocalDateTime.parse(extractJsonString(content, "lastSeen"));
+        pet.isPetExisting = extractJsonBoolean(content, "ispetexisting");
+        pet.ownerName = extractJsonString(content, "ownerName");
+        pet.petType = extractJsonString(content, "petType");
+        pet.hearts = extractJsonInt(content, "hearts");
+        pet.correctAnswers = extractJsonInt(content, "correctAnswers");
+        pet.stage = extractJsonString(content, "stage");
+        return pet;
+    }
+
     public List<String> listSaveFiles() {
-        OSDetection();
-        Path saveDir = FileSYS();
+        detectOperatingSystem();
+        Path saveDir = getSaveDirectory();
         List<String> saves = new ArrayList<>();
         try {
             if (Files.exists(saveDir)) {

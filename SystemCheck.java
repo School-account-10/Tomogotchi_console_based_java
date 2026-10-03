@@ -8,7 +8,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 import java.util.Scanner;
-
+// for the future developers DO NOT MODIFY THIS
+// this is the SELF CHECK SYSTEM
+// this checks the underlying code of the system to make sure if modified we will know
 public class SystemCheck {
 
     private static final String[] REQUIRED_CONFIGS = {"personalities.json", "quiz.json", "namesdb.json"};
@@ -16,19 +18,38 @@ public class SystemCheck {
     private static final String BACKUP_DIR = "configs/codebackup";
     private static final String BACKUP_FILE = "code_backup.json";
 
-
     public static final Scanner SCANNER = new Scanner(System.in);
 
     public static boolean run() {
+        printCheckHeader();
+
+        boolean allGood = checkRequiredDirectories() && checkRequiredConfigFiles();
+
+        System.out.println();
+        if (!allGood) {
+            System.out.println("  WARNING: Some required files are missing!");
+            System.out.println("  The game may not work correctly.");
+        }
+
+        if (!runCodeBackupCheck(SCANNER)) {
+            System.out.println();
+            System.out.println("  Game not started. Goodbye!");
+            return false;
+        }
+
+        return askForPermissionToRun();
+    }
+
+    private static void printCheckHeader() {
         System.out.println();
         System.out.println("  ==========================================");
         System.out.println("         SYSTEM CHECK");
         System.out.println("  ==========================================");
         System.out.println();
+    }
 
+    private static boolean checkRequiredDirectories() {
         boolean allGood = true;
-
-
         for (String dir : REQUIRED_DIRS) {
             Path dirPath = Paths.get(System.getProperty("user.dir"), dir);
             if (!Files.exists(dirPath)) {
@@ -43,8 +64,11 @@ public class SystemCheck {
                 System.out.println("  [OK] Directory: " + dir);
             }
         }
+        return allGood;
+    }
 
-
+    private static boolean checkRequiredConfigFiles() {
+        boolean allGood = true;
         Path configsDir = Paths.get(System.getProperty("user.dir"), "configs");
         for (String config : REQUIRED_CONFIGS) {
             Path configPath = configsDir.resolve(config);
@@ -55,22 +79,10 @@ public class SystemCheck {
                 System.out.println("  [OK] Config: " + config);
             }
         }
+        return allGood;
+    }
 
-        System.out.println();
-
-        if (!allGood) {
-            System.out.println("  WARNING: Some required files are missing!");
-            System.out.println("  The game may not work correctly.");
-        }
-
-
-        if (!runCodeBackupCheck(SCANNER)) {
-            System.out.println();
-            System.out.println("  Game not started. Goodbye!");
-            return false;
-        }
-
-
+    private static boolean askForPermissionToRun() {
         System.out.print("  Do you agree to run? (yes/no): ");
         String answer = SCANNER.nextLine().trim().toLowerCase();
 
@@ -78,22 +90,21 @@ public class SystemCheck {
             System.out.println("  System check passed. Starting game...");
             System.out.println();
             return true;
-        } else {
-            System.out.println("  Game not started. Goodbye!");
-            return false;
         }
+
+        System.out.println("  Game not started. Goodbye!");
+        return false;
     }
 
-
+    // ------------------------------------------------------------------
+    //  CODE BACKUP + VANITY CHECK
+    // ------------------------------------------------------------------
 
     private static boolean runCodeBackupCheck(Scanner scanner) {
         Path backupDir = Paths.get(System.getProperty("user.dir"), BACKUP_DIR);
         Path backupPath = backupDir.resolve(BACKUP_FILE);
 
-        System.out.println("  ==========================================");
-        System.out.println("          CODE BACKUP");
-        System.out.println("  ==========================================");
-        System.out.println();
+        printBackupHeader();
 
         List<String> currentFiles = listJavaFiles();
         if (currentFiles.isEmpty()) {
@@ -113,78 +124,111 @@ public class SystemCheck {
             System.out.println();
         }
 
-        String backupJson;
-        try {
-            backupJson = new String(Files.readAllBytes(backupPath));
-        } catch (IOException e) {
-            System.out.println("  [ERROR] Could not read backup file: " + e.getMessage());
+        String backupJson = readBackupJson(backupPath, currentFiles);
+        if (backupJson == null) {
             return false;
         }
 
-        if (backupJson.indexOf("\"files\": {") == -1) {
-            System.out.println("  [ERROR] Backup file is corrupted. Recreating it...");
-            if (!writeBackup(backupDir, backupPath, currentFiles, null)) {
-                return false;
-            }
-            try {
-                backupJson = new String(Files.readAllBytes(backupPath));
-            } catch (IOException e) {
-                System.out.println("  [ERROR] Could not read backup file: " + e.getMessage());
-                return false;
-            }
-        }
-
-
-        List<String> issues = new ArrayList<>();
-        StringBuilder diffReport = new StringBuilder();
-
-        for (String file : currentFiles) {
-            String backedUp = extractJsonFileContent(backupJson, file);
-            if (backedUp == null) {
-                issues.add(file + " (NEW - not in backup)");
-                diffReport.append("  ").append(file).append(": new file, not in backup\n");
-                continue;
-            }
-            String current;
-            try {
-                current = new String(Files.readAllBytes(Paths.get(System.getProperty("user.dir"), file)));
-            } catch (IOException e) {
-                issues.add(file + " (UNREADABLE)");
-                continue;
-            }
-            if (!backedUp.equals(current)) {
-                issues.add(file + " (MODIFIED)");
-                diffReport.append("  ").append(file).append(":\n");
-                diffReport.append(diffLines(backedUp, current));
-            }
-        }
-
-        for (String backedFileName : extractBackupFileNames(backupJson)) {
-            if (!currentFiles.contains(backedFileName)) {
-                issues.add(backedFileName + " (MISSING - erased from disk)");
-                diffReport.append("  ").append(backedFileName).append(": MISSING (file was erased)\n");
-            }
-        }
-
-        if (issues.isEmpty()) {
+        BackupComparison comparison = compareBackupWithCurrent(backupJson, currentFiles);
+        if (comparison.issues.isEmpty()) {
             System.out.println("  Vanity check successful, proceeding with program.");
             System.out.println();
             return true;
         }
 
+        printComparisonIssues(comparison);
+        return promptForBackupUpdate(scanner, backupDir, backupPath, backupJson, currentFiles);
+    }
+
+    private static void printBackupHeader() {
+        System.out.println("  ==========================================");
+        System.out.println("          CODE BACKUP");
+        System.out.println("  ==========================================");
+        System.out.println();
+    }
+
+    private static String readBackupJson(Path backupPath, List<String> currentFiles) {
+        String backupJson;
+        try {
+            backupJson = new String(Files.readAllBytes(backupPath));
+        } catch (IOException e) {
+            System.out.println("  [ERROR] Could not read backup file: " + e.getMessage());
+            return null;
+        }
+
+        if (backupJson.indexOf("\"files\": {") == -1) {
+            System.out.println("  [ERROR] Backup file is corrupted. Recreating it...");
+            if (!writeBackup(backupPath.getParent(), backupPath, currentFiles, null)) {
+                return null;
+            }
+            try {
+                backupJson = new String(Files.readAllBytes(backupPath));
+            } catch (IOException e) {
+                System.out.println("  [ERROR] Could not read backup file: " + e.getMessage());
+                return null;
+            }
+        }
+
+        return backupJson;
+    }
+
+    private static class BackupComparison {
+        List<String> issues = new ArrayList<>();
+        StringBuilder diffReport = new StringBuilder();
+    }
+
+    private static BackupComparison compareBackupWithCurrent(String backupJson, List<String> currentFiles) {
+        BackupComparison comparison = new BackupComparison();
+
+        for (String file : currentFiles) {
+            String backedUp = extractJsonFileContent(backupJson, file);
+            if (backedUp == null) {
+                comparison.issues.add(file + " (NEW - not in backup)");
+                comparison.diffReport.append("  ").append(file).append(": new file, not in backup\n");
+                continue;
+            }
+
+            String current = readFileToString(Paths.get(System.getProperty("user.dir"), file));
+            if (current == null) {
+                comparison.issues.add(file + " (UNREADABLE)");
+                continue;
+            }
+
+            if (!backedUp.equals(current)) {
+                comparison.issues.add(file + " (MODIFIED)");
+                comparison.diffReport.append("  ").append(file).append(":\n");
+                comparison.diffReport.append(diffLines(backedUp, current));
+            }
+        }
+
+        for (String backedFileName : extractBackupFileNames(backupJson)) {
+            if (!currentFiles.contains(backedFileName)) {
+                comparison.issues.add(backedFileName + " (MISSING - erased from disk)");
+                comparison.diffReport.append("  ").append(backedFileName).append(": MISSING (file was erased)\n");
+            }
+        }
+
+        return comparison;
+    }
+
+    private static void printComparisonIssues(BackupComparison comparison) {
         System.out.println("  CODE CHANGES: backup does not match current code!");
         System.out.println();
-        for (String issue : issues) {
+        for (String issue : comparison.issues) {
             System.out.println("  [DIFF] " + issue);
         }
         System.out.println();
         System.out.println("  --- what changed (- = erased/old, + = added/new) ---");
-        System.out.print(diffReport.toString());
+        System.out.print(comparison.diffReport.toString());
         System.out.println("  ------------------------------------------------------");
         System.out.println();
+    }
 
+    private static boolean promptForBackupUpdate(Scanner scanner, Path backupDir, Path backupPath,
+                                                 String backupJson, List<String> currentFiles) {
         System.out.print("  Is this code changed by you? (yes/no/bypass): ");
         String answer = scanner.nextLine().trim().toLowerCase();
+
         if (answer.equals("bypass") || answer.equals("b") || answer.equals("skip")) {
             System.out.println();
             System.out.println("  Bypassing code backup check - the game will run,");
@@ -192,34 +236,21 @@ public class SystemCheck {
             System.out.println();
             return true;
         }
+
         if (!answer.equals("yes") && !answer.equals("y")) {
             printCheckFailed();
             return false;
         }
 
-        String code1 = generateCode();
-        System.out.println();
-        System.out.println("  Enter this randomly generated code below if you wanna");
-        System.out.println("  modify the backup:");
-        System.out.println("  " + code1);
-        System.out.print("  > ");
-        String entry1 = scanner.nextLine().trim();
-        if (!entry1.equalsIgnoreCase(code1)) {
-            System.out.println("  Wrong code. Backup was NOT modified.");
-            printCheckFailed();
+        if (!confirmWithRandomCode(scanner,
+                "Enter this randomly generated code below if you wanna",
+                "modify the backup:")) {
             return false;
         }
 
-        String code2 = generateCode();
-        System.out.println();
-        System.out.println("  Code accepted. Are you sure you wanna modify the backup?");
-        System.out.println("  Enter this randomly generated code below to confirm:");
-        System.out.println("  " + code2);
-        System.out.print("  > ");
-        String entry2 = scanner.nextLine().trim();
-        if (!entry2.equalsIgnoreCase(code2)) {
-            System.out.println("  Wrong code. Backup was NOT modified.");
-            printCheckFailed();
+        if (!confirmWithRandomCode(scanner,
+                "Code accepted. Are you sure you wanna modify the backup?",
+                "Enter this randomly generated code below to confirm:")) {
             return false;
         }
 
@@ -227,9 +258,27 @@ public class SystemCheck {
         if (!writeBackup(backupDir, backupPath, currentFiles, created)) {
             return false;
         }
+
         System.out.println();
         System.out.println("  Backup updated with the new code. Proceeding with program.");
         System.out.println();
+        return true;
+    }
+
+    private static boolean confirmWithRandomCode(Scanner scanner, String promptLine1, String promptLine2) {
+        String code = generateCode();
+        System.out.println();
+        System.out.println("  " + promptLine1);
+        System.out.println("  " + promptLine2);
+        System.out.println("  " + code);
+        System.out.print("  > ");
+
+        String entry = scanner.nextLine().trim();
+        if (!entry.equalsIgnoreCase(code)) {
+            System.out.println("  Wrong code. Backup was NOT modified.");
+            printCheckFailed();
+            return false;
+        }
         return true;
     }
 
@@ -241,7 +290,9 @@ public class SystemCheck {
         System.out.println("  Backup location: " + BACKUP_DIR + "/" + BACKUP_FILE);
     }
 
-
+    // ------------------------------------------------------------------
+    //  BACKUP FILE HELPERS
+    // ------------------------------------------------------------------
 
     private static List<String> listJavaFiles() {
         List<String> files = new ArrayList<>();
@@ -270,7 +321,7 @@ public class SystemCheck {
                 String file = files.get(i);
                 String content = new String(Files.readAllBytes(Paths.get(System.getProperty("user.dir"), file)));
                 json.append("    \"").append(escapeJson(file)).append("\": \"")
-                    .append(escapeJsonFull(content)).append("\"");
+                    .append(escapeJson(content)).append("\"");
                 if (i < files.size() - 1) json.append(",");
                 json.append("\n");
             }
@@ -285,11 +336,15 @@ public class SystemCheck {
         }
     }
 
-    private static String escapeJson(String s) {
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
+    private static String readFileToString(Path path) {
+        try {
+            return new String(Files.readAllBytes(path));
+        } catch (IOException e) {
+            return null;
+        }
     }
 
-    private static String escapeJsonFull(String s) {
+    private static String escapeJson(String s) {
         StringBuilder sb = new StringBuilder();
         for (char c : s.toCharArray()) {
             switch (c) {
@@ -411,6 +466,6 @@ public class SystemCheck {
 
     private static String generateCode() {
         Random rnd = new Random();
-        return String.valueOf(1000 + rnd.nextInt(9000)); // 4 digits, 1000-9999
+        return String.valueOf(1000 + rnd.nextInt(9000));
     }
 }

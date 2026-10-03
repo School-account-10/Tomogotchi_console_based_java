@@ -1,16 +1,18 @@
 import java.util.Scanner;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 public class MainPetmenu {
-    private static Scanner scanner = SystemCheck.SCANNER;
-    private static SavingSystem savingSystem = new SavingSystem();
-    private static Starter.pet currentPet;
+    private static final Scanner scanner = SystemCheck.SCANNER;
+    private static final SavingSystem savingSystem = new SavingSystem();
+    private static Starter.Pet currentPet;
     private static Map<String, Object> currentPersonality;
 
-    private static final int W = 50;
+    private static final int BOX_WIDTH = 50;
 
-    private static int displayWidth(String s) {
+    private static int getDisplayWidth(String s) {
         int w = 0;
         for (int i = 0; i < s.length();) {
             int cp = s.codePointAt(i);
@@ -25,13 +27,13 @@ public class MainPetmenu {
         return w;
     }
 
-    private static String fit(String s, int width) {
+    private static String fitToWidth(String s, int width) {
         StringBuilder sb = new StringBuilder();
         int w = 0;
         for (int i = 0; i < s.length();) {
             int cp = s.codePointAt(i);
             i += Character.charCount(cp);
-            int cw = displayWidth(new String(Character.toChars(cp)));
+            int cw = getDisplayWidth(new String(Character.toChars(cp)));
             if (w + cw > width)
                 break;
             sb.appendCodePoint(cp);
@@ -44,118 +46,126 @@ public class MainPetmenu {
         return sb.toString();
     }
 
-    private static void top() {
-        System.out.println("╔" + "═".repeat(W) + "╗");
+    private static void printBoxTop() {
+        System.out.println("╔" + "═".repeat(BOX_WIDTH) + "╗");
     }
 
-    private static void divider() {
-        System.out.println("╠" + "═".repeat(W) + "╣");
+    private static void printBoxDivider() {
+        System.out.println("╠" + "═".repeat(BOX_WIDTH) + "╣");
     }
 
-    private static void bottom() {
-        System.out.println("╚" + "═".repeat(W) + "╝");
+    private static void printBoxBottom() {
+        System.out.println("╚" + "═".repeat(BOX_WIDTH) + "╝");
     }
 
-    private static void line(String text) {
-        System.out.println("║" + fit("  " + text, W) + "║");
+    private static void printBoxLine(String text) {
+        System.out.println("║" + fitToWidth("  " + text, BOX_WIDTH) + "║");
     }
 
-    private static void centered(String text) {
-        int total = Math.max(0, W - displayWidth(text));
+    private static void printBoxCentered(String text) {
+        int total = Math.max(0, BOX_WIDTH - getDisplayWidth(text));
         int left = total / 2;
-        System.out.println("║" + fit(" ".repeat(left) + text, W) + "║");
+        System.out.println("║" + fitToWidth(" ".repeat(left) + text, BOX_WIDTH) + "║");
     }
 
     public static void main(String[] args) {
         printBanner();
 
         while (true) {
-            printMenuBox();
+            printMainMenu();
             System.out.print("Choose an option: ");
             String choice = scanner.nextLine();
 
-            switch (choice) {
-                case "1":
-                    currentPet = NewGame.createNewPet(scanner, savingSystem);
-                    if (currentPet != null) {
-                        currentPersonality = savingSystem.extractPetPersonality(currentPet.petType);
-                        gameLoop();
-                    }
-                    break;
-                case "2":
-                    currentPet = loadPet();
-                    if (currentPet != null) {
-                        currentPersonality = savingSystem.extractPetPersonality(currentPet.petType);
-                        gameLoop();
-                    }
-                    break;
-                case "3":
-                    printGoodbye();
-                    return;
-                default:
-                    System.out.println("  ⚠ Invalid choice. Please try again.");
+            if (handleMainMenuChoice(choice)) {
+                return;
             }
+        }
+    }
+
+    private static boolean handleMainMenuChoice(String choice) {
+        switch (choice) {
+            case "1":
+                currentPet = NewGame.createNewPet(scanner, savingSystem);
+                if (currentPet != null) {
+                    currentPersonality = savingSystem.extractPetPersonality(currentPet.petType);
+                    gameLoop();
+                } else {
+                    printGoodbye();
+                    return true;
+                }
+                return false;
+            case "2":
+                currentPet = loadPet();
+                if (currentPet != null) {
+                    currentPersonality = savingSystem.extractPetPersonality(currentPet.petType);
+                    gameLoop();
+                }
+                return false;
+            case "3":
+                printGoodbye();
+                return true;
+            default:
+                System.out.println("  ⚠ Invalid choice. Please try again.");
+                return false;
         }
     }
 
     private static void printBanner() {
         System.out.println();
-        top();
-        centered("🐾  TOMOGOTCHI  🐾");
-        centered("Your Console Pet Adventure Starts Here!");
-        bottom();
+        printBoxTop();
+        printBoxCentered("🐾  TOMOGOTCHI  🐾");
+        printBoxCentered("Your Console Pet Adventure Starts Here!");
+        printBoxBottom();
         System.out.println();
     }
 
-    private static void printMenuBox() {
-        top();
-        centered("🏠 MAIN MENU");
-        divider();
-        line("1. 🆕 Create New Pet");
-        line("2. 📂 Load Pet");
-        line("3. ❌ Exit");
-        bottom();
+    private static void printMainMenu() {
+        printBoxTop();
+        printBoxCentered("🏠 MAIN MENU");
+        printBoxDivider();
+        printBoxLine("1. 🆕 Create New Pet");
+        printBoxLine("2. 📂 Load Pet");
+        printBoxLine("3. ❌ Exit");
+        printBoxBottom();
         System.out.print("▶ ");
     }
 
     private static void printGoodbye() {
         System.out.println();
-        top();
-        centered("👋 Goodbye! Thanks for playing! ♡");
-        bottom();
+        printBoxTop();
+        printBoxCentered("👋 Goodbye! Thanks for playing! ♡");
+        printBoxBottom();
     }
 
     private static void printActionMenu() {
-        top();
-        centered("🎮 ACTIONS");
-        divider();
-        line("1. 🍖 Feed");
-        line("2. 🎾 Play");
-        line("3. 📊 View Stats");
-        line("4. 💾 Save & Quit");
-        line("5. 🏠 Return to Main Menu");
-        bottom();
+        printBoxTop();
+        printBoxCentered("🎮 ACTIONS");
+        printBoxDivider();
+        printBoxLine("1. 🍖 Feed");
+        printBoxLine("2. 🎾 Play");
+        printBoxLine("3. 📊 View Stats");
+        printBoxLine("4. 💾 Save & Quit");
+        printBoxLine("5. 🏠 Return to Main Menu");
+        printBoxBottom();
         System.out.print("▶ ");
     }
-    private static void currentPet(){
 
-    }
-
-    private static void printStatusHeader(Starter.pet pet) {
+    private static void printStatusHeader(Starter.Pet pet) {
         System.out.println();
-        top();
-        centered("PET");
-        divider();
-        line("  (sprite display here)");
-        divider();
-        centered("📊 PET STATUS");
-        divider();
-        line(String.format("%-8s %s", "Name:", pet.petName));
-        line(String.format("%-8s %s", "Owner:", pet.ownerName));
-        line(String.format("%-8s %s", "Type:", pet.petType));
-        line(String.format("%-8s %s", "Stage:", pet.stage));
-        line(String.format("%-8s %d", "ID:", pet.petId));
-        divider();
+        printBoxTop();
+        printBoxCentered("PET");
+        printBoxDivider();
+        printBoxLine("  (sprite display here)");
+        printBoxDivider();
+        printBoxCentered("📊 PET STATUS");
+        printBoxDivider();
+        printBoxLine(String.format("%-8s %s", "Name:", pet.petName));
+        printBoxLine(String.format("%-8s %s", "Owner:", pet.ownerName));
+        printBoxLine(String.format("%-8s %s", "Type:", pet.petType));
+        printBoxLine(String.format("%-8s %s", "Stage:", pet.stage));
+        printBoxLine(String.format("%-8s %d", "ID:", pet.petId));
+        printBoxLine(String.format("%-8s %s", "Time:", LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"))));
+        printBoxDivider();
     }
 
     private static void printStatusBar(String label, int value, String emoji) {
@@ -164,28 +174,28 @@ public class MainPetmenu {
         for (int i = 0; i < 10; i++) {
             bar.append(i < bars ? "█" : "░");
         }
-        line(emoji + " " + String.format("%-10s %3d/100 [%s]", label, value, bar));
+        printBoxLine(emoji + " " + String.format("%-10s %3d/100 [%s]", label, value, bar));
     }
 
-    private static void printStatusFooter(Starter.pet pet) {
-        divider();
-        line("Hearts: " + pet.hearts + "    Correct Answers: " + pet.correctAnswers);
-        line("Last seen: " + pet.lastSeen);
+    private static void printStatusFooter(Starter.Pet pet) {
+        printBoxDivider();
+        printBoxLine("Hearts: " + pet.hearts + "    Correct Answers: " + pet.correctAnswers);
+        printBoxLine("Last seen: " + pet.lastSeen);
         if (currentPersonality != null) {
             @SuppressWarnings("unchecked")
             List<String> traits = (List<String>) currentPersonality.get("traits");
             if (traits != null && !traits.isEmpty()) {
-                line("Personality: " + String.join(", ", traits));
+                printBoxLine("Personality: " + String.join(", ", traits));
             }
         }
-        bottom();
+        printBoxBottom();
     }
 
-    private static Starter.pet loadPet() {
+    private static Starter.Pet loadPet() {
         System.out.println();
-        top();
-        centered("📂 LOAD PET");
-        bottom();
+        printBoxTop();
+        printBoxCentered("📂 LOAD PET");
+        printBoxBottom();
 
         List<String> saves = savingSystem.listSaveFiles();
 
@@ -194,39 +204,45 @@ public class MainPetmenu {
             return null;
         }
 
+        printSaveOptions(saves);
+        System.out.print("  Choose a save (number): ");
+        int selection = parseSaveSelection(scanner.nextLine(), saves.size());
+
+        if (selection >= 0 && selection < saves.size()) {
+            Starter.Pet loadedPet = savingSystem.loadPet(saves.get(selection));
+            if (loadedPet != null) {
+                System.out.println("  ✅ Pet loaded successfully!");
+                return loadedPet;
+            }
+        } else if (selection == saves.size()) {
+            System.out.println("  ↩ Returning to main menu...");
+        } else {
+            System.out.println("  ⚠ Invalid selection.");
+        }
+        return null;
+    }
+
+    private static void printSaveOptions(List<String> saves) {
         System.out.println("  Available saves:");
         for (int i = 0; i < saves.size(); i++) {
             System.out.println("    " + (i + 1) + ". " + saves.get(i));
         }
         System.out.println("    " + (saves.size() + 1) + ". 🏠 Back to Main Menu");
+    }
 
-        System.out.print("  Choose a save (number): ");
+    private static int parseSaveSelection(String input, int saveCount) {
         try {
-            int idx = Integer.parseInt(scanner.nextLine()) - 1;
-            if (idx >= 0 && idx < saves.size()) {
-                Starter.pet loadedPet = savingSystem.loadPet(saves.get(idx));
-                if (loadedPet != null) {
-                    System.out.println("  ✅ Pet loaded successfully!");
-                    return loadedPet;
-                }
-            } else if (idx == saves.size()) {
-                System.out.println("  ↩ Returning to main menu...");
-                return null;
-            } else {
-                System.out.println("  ⚠ Invalid selection.");
-            }
+            return Integer.parseInt(input) - 1;
         } catch (NumberFormatException e) {
-            System.out.println("  ⚠ Invalid input. Please enter a number.");
+            return -1;
         }
-        return null;
     }
 
     private static void gameLoop() {
         System.out.println();
-        top();
-
-        centered("Your pet " + currentPet.petName + " is ready for adventure!");
-        bottom();
+        printBoxTop();
+        printBoxCentered("Your pet " + currentPet.petName + " is ready for adventure!");
+        printBoxBottom();
 
         while (true) {
             showPetStatus(currentPet);
@@ -234,25 +250,32 @@ public class MainPetmenu {
 
             String action = scanner.nextLine();
 
-            switch (action) {
-                case "1":
-                    feed();
-                    break;
-                case "2":
-                    play();
-                    break;
-                case "3":
-                    showPetStatus(currentPet);
-                    break;
-                case "4":
-                    saveAndQuit();
-                    return;
-                case "5":
-                    System.out.println("  ↩ Returning to main menu...");
-                    return;
-                default:
-                    System.out.println("  ⚠ Invalid action. Please try again.");
+            if (handleAction(action)) {
+                return;
             }
+        }
+    }
+
+    private static boolean handleAction(String action) {
+        switch (action) {
+            case "1":
+                feed();
+                return false;
+            case "2":
+                play();
+                return false;
+            case "3":
+                showPetStatus(currentPet);
+                return false;
+            case "4":
+                saveAndQuit();
+                return true;
+            case "5":
+                System.out.println("  ↩ Returning to main menu...");
+                return true;
+            default:
+                System.out.println("  ⚠ Invalid action. Please try again.");
+                return false;
         }
     }
 
@@ -285,7 +308,13 @@ public class MainPetmenu {
         System.out.println("  💾 Game saved successfully! See you next time!");
     }
 
-    private static void showPetStatus(Starter.pet pet) {
+    private static void clearConsole() {
+        System.out.print("\u001B[2J\u001B[H");
+        System.out.flush();
+    }
+
+    private static void showPetStatus(Starter.Pet pet) {
+        clearConsole();
         printStatusHeader(pet);
         printStatusBar("Hunger", pet.hunger, "🍖");
         printStatusBar("Happiness", pet.happiness, "♡");

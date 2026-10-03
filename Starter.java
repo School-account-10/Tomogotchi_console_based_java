@@ -2,11 +2,10 @@ import java.time.LocalDateTime;
 
 public class Starter {
 
-    public static class pet {
+    public static class Pet {
         public String petName;
         public int petId;
-        public boolean running = true;
-        public boolean ispetexisting;
+        public boolean isPetExisting;
         public int hunger;
         public int happiness;
         public LocalDateTime lastSeen;
@@ -17,9 +16,7 @@ public class Starter {
         public String stage;
     }
 
-
     public static void main(String[] args) {
-
         if (SystemCheck.run()) {
             MainPetmenu.main(args);
         }
