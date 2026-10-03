@@ -18,6 +18,8 @@ public class Starter {
     }
 
     public static void main(String[] args) {
-        Menu.show();
+        if (SystemCheck.run()) {
+            MainPetmenu.main(args);
+        }
     }
 }

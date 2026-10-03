@@ -1,86 +1,125 @@
 import java.util.Scanner;
-import java.util.random.RandomGenerator;
+import java.util.List;
+import java.util.Map;
 import java.time.LocalDateTime;
-import java.time.Duration;
 
 public class NewGame {
-    Scanner GameSC = new Scanner(System.in);
-    SavingSystem SVSYS = new SavingSystem();
-    Starter.pet iniVariables = new Starter.pet();
-    boolean running = iniVariables.running = true;
-    RandomGenerator RDM = RandomGenerator.getDefault();
-    boolean justrancheck;
 
-    public class BasicPetInfo {
+    public static Starter.pet createNewPet(Scanner scanner, SavingSystem savingSystem) {
+        System.out.println();
+        System.out.println("  ==========================================");
+        System.out.println("         CREATE NEW PET");
+        System.out.println("  ==========================================");
+        System.out.println("  Welcome to Tomogotchi! Let's create your new friend.");
+        System.out.println();
 
-        public Starter.pet newplayerdisplay() {
-            System.out.println("just ran?: " + justrancheck);
+        Starter.pet pet = new Starter.pet();
+
+        System.out.print("  What's your name, caretaker? ");
+        pet.ownerName = scanner.nextLine();
+        System.out.println("  Nice to meet you, " + pet.ownerName + "!");
+
+        String quizJson = savingSystem.loadConfig("quiz.json");
+        List<String> validPets = savingSystem.extractJsonStringArray(quizJson, "validPets");
+
+        System.out.println();
+        System.out.println("  Choose your pet type:");
+        for (int i = 0; i < validPets.size(); i++) {
+            System.out.println("    " + (i + 1) + ". " + validPets.get(i));
+        }
+        System.out.print("  Enter pet type (1-" + validPets.size() + "): ");
+
+        while (true) {
+            try {
+                int idx = Integer.parseInt(scanner.nextLine()) - 1;
+                if (idx >= 0 && idx < validPets.size()) {
+                    pet.petType = validPets.get(idx);
+                    System.out.println("  You chose: " + pet.petType + "!");
+                    break;
+                } else {
+                    System.out.print("  Oops! Not appropriate. Please try again (1-" + validPets.size() + "): ");
+                }
+            } catch (NumberFormatException e) {
+                System.out.print("  Oops! Not appropriate. Please enter a number: ");
+            }
+        }
+
+        Map<String, Object> personality = savingSystem.extractPetPersonality(pet.petType);
+
+        String greeting = (String) personality.get("greeting");
+        if (greeting != null && !greeting.isEmpty()) {
             System.out.println();
-            System.out.println("  Hey there! Welcome to Tomogotchi.");
-            System.out.println("  I know, I know - it's been a while since anyone's heard from me.");
-            System.out.println("  But I've got a little friend who needs a home, and I think you're it.");
-
-            do {
-                iniVariables.petName = "0";
-                iniVariables.hunger = 0;
-                iniVariables.petId = 0;
-                iniVariables.happiness = 0;
-                iniVariables.lastSeen = null;
-                iniVariables.ownerName = "";
-                justrancheck = false;
-            } while (justrancheck == true);
-
-            owner_name();
-            pet_name();
-            display_all_Finalinfo();
-            return iniVariables;
+            System.out.println("  " + greeting);
         }
 
-        public String owner_name() {
-            System.out.println();
-            System.out.print("So, what's your name? ");
-            iniVariables.ownerName = GameSC.nextLine();
-            System.out.println("Nice to meet you, " + iniVariables.ownerName + ".");
-            return iniVariables.ownerName;
+        String namesDbJson = savingSystem.loadConfig("namesdb.json");
+        List<String> blockedWords = savingSystem.extractJsonStringArray(namesDbJson, "blockedNames");
+        int minLen = 2;
+        int maxLen = 15;
+
+        System.out.println();
+        System.out.print("  What would you like to name your pet? ");
+        while (true) {
+            pet.petName = scanner.nextLine();
+            boolean valid = true;
+
+            if (pet.petName.length() < minLen || pet.petName.length() > maxLen) {
+                valid = false;
+            } else {
+                for (String blocked : blockedWords) {
+                    if (pet.petName.toLowerCase().contains(blocked.toLowerCase())) {
+                        valid = false;
+                        break;
+                    }
+                }
+            }
+
+            if (valid) {
+                System.out.println("  Great name: " + pet.petName + "!");
+                break;
+            } else {
+                System.out.print("  Oops! Not appropriate. Please try again: ");
+            }
         }
 
-        public String pet_name() {
-            System.out.println();
-            System.out.println("Now, what should we call your new buddy?");
-            System.out.print("Pet name: ");
-            iniVariables.petName = GameSC.nextLine();
-            ini_all_variables();
-            return iniVariables.petName;
-        }
+        pet.hunger = (int) (Math.random() * 31) + 70;
+        pet.happiness = (int) (Math.random() * 31) + 70;
+        pet.petId = (int) (Math.random() * 99999) + 1;
+        pet.lastSeen = LocalDateTime.now();
+        pet.ispetexisting = true;
+        pet.hearts = 5;
+        pet.correctAnswers = 0;
+        pet.stage = "Baby";
 
-        public Starter.pet ini_all_variables() {
-            iniVariables.hunger = RDM.nextInt(70, 101);
-            iniVariables.petId = RDM.nextInt(1, 99999);
-            iniVariables.happiness = RDM.nextInt(70, 101);
-            iniVariables.lastSeen = LocalDateTime.now();
-            iniVariables.ispetexisting = true;
-            justrancheck = true;
-            return iniVariables;
-        }
+        System.out.println();
+        System.out.println("  ==========================================");
+        System.out.println("           PET CREATED!");
+        System.out.println("  ==========================================");
+        showPetStatus(pet, personality);
 
-        public void display_all_Finalinfo() {
-            System.out.println();
-            System.out.println("Alright, here's what we've got:");
-            System.out.println("  Owner: " + iniVariables.ownerName);
-            System.out.println("  Pet: " + iniVariables.petName);
-            System.out.println("  Happiness: " + iniVariables.happiness);
-            System.out.println("  Hunger: " + iniVariables.hunger);
-            System.out.println("  ID: " + iniVariables.petId);
-            System.out.println("  First seen: " + iniVariables.lastSeen);
-
-            System.out.println("just ran?: " + justrancheck);
-
-            SVSYS.savePet(iniVariables);
-        }
+        savingSystem.savePet(pet);
+        return pet;
     }
 
-    public static void main(String[] args) {
-        NewGame game = new NewGame();
-        game.new BasicPetInfo().newplayerdisplay();
+    public static void showPetStatus(Starter.pet pet, Map<String, Object> personality) {
+        System.out.println();
+        System.out.println("  --- PET STATUS ---");
+        System.out.println("  Name: " + pet.petName);
+        System.out.println("  Owner: " + pet.ownerName);
+        System.out.println("  Type: " + pet.petType);
+        System.out.println("  Happiness: " + pet.happiness + "/100");
+        System.out.println("  Hunger: " + pet.hunger + "/100");
+        System.out.println("  Hearts: " + pet.hearts);
+        System.out.println("  Correct Answers: " + pet.correctAnswers);
+        System.out.println("  Stage: " + pet.stage);
+        System.out.println("  Last seen: " + pet.lastSeen);
+
+        if (personality != null) {
+            @SuppressWarnings("unchecked")
+            List<String> traits = (List<String>) personality.get("traits");
+            if (traits != null && !traits.isEmpty()) {
+                System.out.println("  Personality: " + String.join(", ", traits));
+            }
+        }
     }
 }
