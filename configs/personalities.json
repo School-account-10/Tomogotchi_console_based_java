@@ -1,7 +1,7 @@
 {
   "cat": {
     "greeting": "Meow~ Oh, a new human? *stretches* I suppose I'll allow you to take care of me.",
-    "traits": ["independent", "curious", "sassy", "aloof", "clean"],
+    "traits": ["independent", "curious", "sassy", "clean"],
     "likes": ["naps in sunbeams", "chasing laser dots", "knocking things off tables", "cardboard boxes"],
     "dislikes": ["water", "loud noises", "being ignored", "baths"],
     "feedReaction": "*purrs* Not bad, human. Not bad at all.",

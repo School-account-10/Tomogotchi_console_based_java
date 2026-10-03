@@ -3,10 +3,68 @@ import java.util.List;
 import java.util.Map;
 
 public class MainPetmenu {
-    private static Scanner scanner = new Scanner(System.in);
+    private static Scanner scanner = SystemCheck.SCANNER;
     private static SavingSystem savingSystem = new SavingSystem();
     private static Starter.pet currentPet;
     private static Map<String, Object> currentPersonality;
+
+    private static final int W = 50;
+
+    private static int displayWidth(String s) {
+        int w = 0;
+        for (int i = 0; i < s.length();) {
+            int cp = s.codePointAt(i);
+            i += Character.charCount(cp);
+            if (cp == 0xFE0F || cp == 0x200D)
+                continue;
+            if (cp >= 0x1F000 || cp == 0x2705 || cp == 0x274C)
+                w += 2;
+            else
+                w += 1;
+        }
+        return w;
+    }
+
+    private static String fit(String s, int width) {
+        StringBuilder sb = new StringBuilder();
+        int w = 0;
+        for (int i = 0; i < s.length();) {
+            int cp = s.codePointAt(i);
+            i += Character.charCount(cp);
+            int cw = displayWidth(new String(Character.toChars(cp)));
+            if (w + cw > width)
+                break;
+            sb.appendCodePoint(cp);
+            w += cw;
+        }
+        while (w < width) {
+            sb.append(' ');
+            w++;
+        }
+        return sb.toString();
+    }
+
+    private static void top() {
+        System.out.println("╔" + "═".repeat(W) + "╗");
+    }
+
+    private static void divider() {
+        System.out.println("╠" + "═".repeat(W) + "╣");
+    }
+
+    private static void bottom() {
+        System.out.println("╚" + "═".repeat(W) + "╝");
+    }
+
+    private static void line(String text) {
+        System.out.println("║" + fit("  " + text, W) + "║");
+    }
+
+    private static void centered(String text) {
+        int total = Math.max(0, W - displayWidth(text));
+        int left = total / 2;
+        System.out.println("║" + fit(" ".repeat(left) + text, W) + "║");
+    }
 
     public static void main(String[] args) {
         printBanner();
@@ -32,109 +90,102 @@ public class MainPetmenu {
                     }
                     break;
                 case "3":
-                    if (currentPet != null) {
-                        showPetStatus(currentPet);
-                    } else {
-                        printGoodbye();
-                        return;
-                    }
-                    break;
-                case "4":
                     printGoodbye();
                     return;
                 default:
-                    System.out.println("║  ⚠ Invalid choice. Please try again.              ║");
+                    System.out.println("  ⚠ Invalid choice. Please try again.");
             }
         }
     }
 
     private static void printBanner() {
         System.out.println();
-        System.out.println("╔══════════════════════════════════════════════════╗");
-        System.out.println("║       🐾  TOMOGOTCHI  🐾                        ║");
-        System.out.println("║   Your Console Pet Adventure Starts Here!        ║");
-        System.out.println("╚══════════════════════════════════════════════════╝");
+        top();
+        centered("🐾  TOMOGOTCHI  🐾");
+        centered("Your Console Pet Adventure Starts Here!");
+        bottom();
         System.out.println();
     }
 
     private static void printMenuBox() {
-        System.out.println("╔══════════════════════════════════════════════════╗");
-        System.out.println("║                 🏠 MAIN MENU                     ║");
-        System.out.println("╠══════════════════════════════════════════════════╣");
-        System.out.println("║  1. 🆕 Create New Pet                            ║");
-        System.out.println("║  2. 📂 Load Pet                                  ║");
-        if (currentPet != null) {
-            System.out.println("║  3. 📊 Show Pet Status                           ║");
-            System.out.println("║  4. ❌ Exit                                      ║");
-        } else {
-            System.out.println("║  3. ❌ Exit                                      ║");
-        }
-        System.out.println("╚══════════════════════════════════════════════════╝");
+        top();
+        centered("🏠 MAIN MENU");
+        divider();
+        line("1. 🆕 Create New Pet");
+        line("2. 📂 Load Pet");
+        line("3. ❌ Exit");
+        bottom();
         System.out.print("▶ ");
     }
 
     private static void printGoodbye() {
         System.out.println();
-        System.out.println("╔══════════════════════════════════════════════════╗");
-        System.out.println("║  👋 Goodbye! Thanks for playing!  ♡              ║");
-        System.out.println("╚══════════════════════════════════════════════════╝");
+        top();
+        centered("👋 Goodbye! Thanks for playing! ♡");
+        bottom();
     }
 
     private static void printActionMenu() {
-        System.out.println("╔══════════════════════════════════════════════════╗");
-        System.out.println("║              🎮 ACTIONS                          ║");
-        System.out.println("╠══════════════════════════════════════════════════╣");
-        System.out.println("║  1. 🍖 Feed                                      ║");
-        System.out.println("║  2. 🎾 Play                                      ║");
-        System.out.println("║  3. 📊 View Stats                                ║");
-        System.out.println("║  4. 💾 Save & Quit                               ║");
-        System.out.println("║  5. 🏠 Return to Main Menu                       ║");
-        System.out.println("╚══════════════════════════════════════════════════╝");
+        top();
+        centered("🎮 ACTIONS");
+        divider();
+        line("1. 🍖 Feed");
+        line("2. 🎾 Play");
+        line("3. 📊 View Stats");
+        line("4. 💾 Save & Quit");
+        line("5. 🏠 Return to Main Menu");
+        bottom();
         System.out.print("▶ ");
+    }
+    private static void currentPet(){
+
     }
 
     private static void printStatusHeader(Starter.pet pet) {
         System.out.println();
-        System.out.println("╔══════════════════════════════════════════════════╗");
-        System.out.println("║              📊 PET STATUS                       ║");
-        System.out.println("╠══════════════════════════════════════════════════╣");
-        System.out.printf("║  Name:    %-38s║%n", pet.petName);
-        System.out.printf("║  Owner:   %-38s║%n", pet.ownerName);
-        System.out.printf("║  Type:    %-38s║%n", pet.petType);
-        System.out.printf("║  Stage:   %-38s║%n", pet.stage);
-        System.out.printf("║  ID:      %-38d║%n", pet.petId);
-        System.out.println("╠══════════════════════════════════════════════════╣");
+        top();
+        centered("PET");
+        divider();
+        line("  (sprite display here)");
+        divider();
+        centered("📊 PET STATUS");
+        divider();
+        line(String.format("%-8s %s", "Name:", pet.petName));
+        line(String.format("%-8s %s", "Owner:", pet.ownerName));
+        line(String.format("%-8s %s", "Type:", pet.petType));
+        line(String.format("%-8s %s", "Stage:", pet.stage));
+        line(String.format("%-8s %d", "ID:", pet.petId));
+        divider();
     }
 
     private static void printStatusBar(String label, int value, String emoji) {
         int bars = value / 10;
         StringBuilder bar = new StringBuilder();
         for (int i = 0; i < 10; i++) {
-            if (i < bars) bar.append("█");
-            else bar.append("░");
+            bar.append(i < bars ? "█" : "░");
         }
-        System.out.printf("║  %s %s %-3d/100 [%-10s]║%n", emoji, label, value, bar.toString());
+        line(emoji + " " + String.format("%-10s %3d/100 [%s]", label, value, bar));
     }
 
     private static void printStatusFooter(Starter.pet pet) {
-        System.out.println("╠══════════════════════════════════════════════════╣");
-        System.out.printf("║  Hearts: %-2d    Correct Answers: %-3d            ║%n", pet.hearts, pet.correctAnswers);
-        System.out.printf("║  Last seen: %-34s║%n", pet.lastSeen);
+        divider();
+        line("Hearts: " + pet.hearts + "    Correct Answers: " + pet.correctAnswers);
+        line("Last seen: " + pet.lastSeen);
         if (currentPersonality != null) {
             @SuppressWarnings("unchecked")
             List<String> traits = (List<String>) currentPersonality.get("traits");
             if (traits != null && !traits.isEmpty()) {
-                System.out.printf("║  Personality: %-32s║%n", String.join(", ", traits));
+                line("Personality: " + String.join(", ", traits));
             }
         }
-        System.out.println("╚══════════════════════════════════════════════════╝");
+        bottom();
     }
 
     private static Starter.pet loadPet() {
         System.out.println();
-        System.out.println("╔══════════════════════════════════════════════════╗");
-        System.out.println("║                📂 LOAD PET                       ║");
-        System.out.println("╚══════════════════════════════════════════════════╝");
+        top();
+        centered("📂 LOAD PET");
+        bottom();
 
         List<String> saves = savingSystem.listSaveFiles();
 
@@ -147,6 +198,7 @@ public class MainPetmenu {
         for (int i = 0; i < saves.size(); i++) {
             System.out.println("    " + (i + 1) + ". " + saves.get(i));
         }
+        System.out.println("    " + (saves.size() + 1) + ". 🏠 Back to Main Menu");
 
         System.out.print("  Choose a save (number): ");
         try {
@@ -157,6 +209,9 @@ public class MainPetmenu {
                     System.out.println("  ✅ Pet loaded successfully!");
                     return loadedPet;
                 }
+            } else if (idx == saves.size()) {
+                System.out.println("  ↩ Returning to main menu...");
+                return null;
             } else {
                 System.out.println("  ⚠ Invalid selection.");
             }
@@ -168,10 +223,10 @@ public class MainPetmenu {
 
     private static void gameLoop() {
         System.out.println();
-        System.out.println("╔══════════════════════════════════════════════════╗");
-        System.out.println("║          🎮 GAME LOOP STARTED                    ║");
-        System.out.println("║  Your pet " + currentPet.petName + " is ready for adventure!        ║");
-        System.out.println("╚══════════════════════════════════════════════════╝");
+        top();
+
+        centered("Your pet " + currentPet.petName + " is ready for adventure!");
+        bottom();
 
         while (true) {
             showPetStatus(currentPet);
@@ -232,8 +287,8 @@ public class MainPetmenu {
 
     private static void showPetStatus(Starter.pet pet) {
         printStatusHeader(pet);
-        printStatusBar("😋 Hunger", pet.hunger, "🍖");
-        printStatusBar("😊 Happiness", pet.happiness, "♡");
+        printStatusBar("Hunger", pet.hunger, "🍖");
+        printStatusBar("Happiness", pet.happiness, "♡");
         printStatusFooter(pet);
     }
 }

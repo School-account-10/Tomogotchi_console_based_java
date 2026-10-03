@@ -17,7 +17,9 @@ public class Starter {
         public String stage;
     }
 
+
     public static void main(String[] args) {
+
         if (SystemCheck.run()) {
             MainPetmenu.main(args);
         }
