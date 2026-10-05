@@ -1,0 +1,32 @@
+<project name="Tomogotchi" default="compile" basedir=".">
+
+    <target name="compile">
+        <mkdir dir="build/classes"/>
+        <javac srcdir="." includes="*.java" destdir="build/classes" includeantruntime="false"/>
+    </target>
+
+    <path id="test.classpath">
+        <pathelement location="build/classes"/>
+        <pathelement location="build/test-classes"/>
+        <fileset dir="lib" includes="*.jar"/>
+    </path>
+
+    <target name="compile-tests" depends="compile">
+        <mkdir dir="build/test-classes"/>
+        <javac srcdir="test" destdir="build/test-classes" includeantruntime="false">
+            <classpath refid="test.classpath"/>
+        </javac>
+    </target>
+
+    <target name="test" depends="compile-tests">
+        <java classpathref="test.classpath" classname="org.junit.platform.console.ConsoleLauncher" fork="true" failonerror="true">
+            <arg value="--scan-classpath"/>
+            <arg value="build/test-classes"/>
+        </java>
+    </target>
+
+    <target name="clean">
+        <delete dir="build"/>
+    </target>
+
+</project>
