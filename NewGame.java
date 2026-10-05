@@ -16,7 +16,7 @@ public class NewGame {
         pet.petType = askForPetType(scanner, savingSystem);
         printGreeting(savingSystem, pet.petType);
         pet.petName = askForPetName(scanner, savingSystem);
-        initializePetStats(pet);
+        initializePetStats(pet, savingSystem);
 
         printPetCreatedBanner();
         showPetStatus(pet, savingSystem.extractPetPersonality(pet.petType));
@@ -138,7 +138,7 @@ public class NewGame {
         return true;
     }
 
-    private static void initializePetStats(Starter.Pet pet) {
+    private static void initializePetStats(Starter.Pet pet, SavingSystem savingSystem) {
         pet.hunger = (int) (Math.random() * 31) + 70;
         pet.happiness = (int) (Math.random() * 31) + 70;
         pet.petId = (int) (Math.random() * 99999) + 1;
@@ -146,7 +146,8 @@ public class NewGame {
         pet.isPetExisting = true;
         pet.hearts = 5;
         pet.correctAnswers = 0;
-        pet.stage = "Baby";
+        pet.xp = 0;
+        pet.stage = savingSystem.getInitialStage();
     }
 
     private static void printPetCreatedBanner() {

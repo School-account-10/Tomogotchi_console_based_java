@@ -13,6 +13,7 @@ public class Starter {
         public String petType;
         public int hearts;
         public int correctAnswers;
+        public int xp;
         public String stage;
     }
 

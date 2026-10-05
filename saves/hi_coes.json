@@ -1,0 +1,14 @@
+{
+  "petName": "coes",
+  "petId": 43627,
+  "hunger": 90,
+  "happiness": 78,
+  "lastSeen": "2026-10-04T16:20:23.995419141",
+  "ispetexisting": true,
+  "ownerName": "hi",
+  "petType": "cat",
+  "hearts": 5,
+  "correctAnswers": 0,
+  "xp": 0,
+  "stage": "egg"
+}

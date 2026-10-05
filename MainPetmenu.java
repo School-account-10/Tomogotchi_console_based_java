@@ -1,8 +1,13 @@
 import java.util.Scanner;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.Random;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
+import java.time.Duration;
 
 public class MainPetmenu {
     private static final Scanner scanner = SystemCheck.SCANNER;
@@ -142,7 +147,7 @@ public class MainPetmenu {
         printBoxCentered("🎮 ACTIONS");
         printBoxDivider();
         printBoxLine("1. 🍖 Feed");
-        printBoxLine("2. 🎾 Play");
+        printBoxLine("2. 🎾 Play (Trivia)");
         printBoxLine("3. 📊 View Stats");
         printBoxLine("4. 💾 Save & Quit");
         printBoxLine("5. 🏠 Return to Main Menu");
@@ -155,7 +160,7 @@ public class MainPetmenu {
         printBoxTop();
         printBoxCentered("PET");
         printBoxDivider();
-        printBoxLine("  (sprite display here)");
+        printSprite(pet.petType);
         printBoxDivider();
         printBoxCentered("📊 PET STATUS");
         printBoxDivider();
@@ -168,6 +173,17 @@ public class MainPetmenu {
         printBoxDivider();
     }
 
+    private static void printSprite(String petType) {
+        List<String> sprite = savingSystem.getSprite(petType.toLowerCase());
+        if (sprite.isEmpty()) {
+            printBoxLine("  (no sprite for " + petType + ")");
+            return;
+        }
+        for (String line : sprite) {
+            printBoxLine("  " + line);
+        }
+    }
+
     private static void printStatusBar(String label, int value, String emoji) {
         int bars = value / 10;
         StringBuilder bar = new StringBuilder();
@@ -175,6 +191,38 @@ public class MainPetmenu {
             bar.append(i < bars ? "█" : "░");
         }
         printBoxLine(emoji + " " + String.format("%-10s %3d/100 [%s]", label, value, bar));
+    }
+
+    private static void printXpBar(Starter.Pet pet) {
+        int xpToNext = savingSystem.getXpToNext(pet.stage);
+        
+        // Egg stage: levels via correct answers, not XP
+        if ("egg".equals(pet.stage)) {
+            int needed = 1 - pet.correctAnswers;
+            if (needed < 0) needed = 0;
+            printBoxLine("⭐ " + String.format("%-10s %d/1 correct answers", "Progress:", pet.correctAnswers));
+            return;
+        }
+        
+        // Adult stage: max level
+        if (savingSystem.isFinalStage(pet.stage)) {
+            printBoxLine("⭐ " + String.format("%-10s MAX LEVEL", "XP:"));
+            return;
+        }
+        
+        // Other stages: show XP progress
+        if (xpToNext <= 0) {
+            printBoxLine("⭐ " + String.format("%-10s MAX LEVEL", "XP:"));
+            return;
+        }
+        int xp = pet.xp;
+        int pct = Math.min(100, (xp * 100) / xpToNext);
+        int bars = pct / 10;
+        StringBuilder bar = new StringBuilder();
+        for (int i = 0; i < 10; i++) {
+            bar.append(i < bars ? "█" : "░");
+        }
+        printBoxLine("⭐ " + String.format("%-10s %4d/%4d [%s]", "XP:", xp, xpToNext, bar));
     }
 
     private static void printStatusFooter(Starter.Pet pet) {
@@ -262,7 +310,7 @@ public class MainPetmenu {
                 feed();
                 return false;
             case "2":
-                play();
+                playTrivia();
                 return false;
             case "3":
                 showPetStatus(currentPet);
@@ -282,6 +330,7 @@ public class MainPetmenu {
     private static void feed() {
         currentPet.hunger = Math.min(100, currentPet.hunger + 20);
         currentPet.happiness = Math.min(100, currentPet.happiness + 5);
+        awardXp("feed");
 
         String reaction = (String) currentPersonality.get("feedReaction");
         if (reaction != null && !reaction.isEmpty()) {
@@ -291,21 +340,229 @@ public class MainPetmenu {
         }
     }
 
-    private static void play() {
-        currentPet.happiness = Math.min(100, currentPet.happiness + 15);
-        currentPet.hunger = Math.max(0, currentPet.hunger - 10);
-
-        String reaction = (String) currentPersonality.get("playReaction");
-        if (reaction != null && !reaction.isEmpty()) {
-            System.out.println("  " + currentPet.petName + ": " + reaction);
-        } else {
-            System.out.println("  " + currentPet.petName + " plays excitedly! Happiness: " + currentPet.happiness);
-        }
-    }
-
     private static void saveAndQuit() {
         savingSystem.savePet(currentPet);
         System.out.println("  💾 Game saved successfully! See you next time!");
+    }
+
+    // ---- XP System ----
+
+    private static void awardXp(String action) {
+        int stageId = getStageId(currentPet.stage);
+        int xp = savingSystem.calculateXpReward(stageId);
+        currentPet.xp += xp;
+        System.out.println("  ⭐ +" + xp + " XP (" + currentPet.xp + "/" + savingSystem.getXpToNext(currentPet.stage) + ")");
+        checkLevelUp();
+    }
+
+    private static int getStageId(String stageName) {
+        List<Map<String, Object>> stages = savingSystem.loadStages();
+        for (Map<String, Object> stage : stages) {
+            if (stage.get("name").equals(stageName)) {
+                return (Integer) stage.get("id");
+            }
+        }
+        return 1;
+    }
+
+    private static void checkLevelUp() {
+        int xpToNext = savingSystem.getXpToNext(currentPet.stage);
+        if (xpToNext > 0 && currentPet.xp >= xpToNext) {
+            String nextStage = savingSystem.getNextStage(currentPet.stage);
+            if (!nextStage.equals(currentPet.stage)) {
+                String oldStage = currentPet.stage;
+                currentPet.stage = nextStage;
+                currentPet.xp = 0;
+                showEvolutionMessage(oldStage, nextStage);
+            }
+        }
+    }
+
+    // ---- Trivia ----
+
+    private static void playTrivia() {
+        if (currentPet.hearts <= 0) {
+            handleNoHearts();
+            return;
+        }
+
+        Map<String, Object> question = getRandomQuestion();
+        if (question == null) {
+            System.out.println("  ⚠ No trivia questions available.");
+            return;
+        }
+
+        clearConsole();
+        printBoxTop();
+        printBoxCentered("🧠 TRIVIA TIME!");
+        printBoxDivider();
+        printBoxLine("Question: " + question.get("question"));
+        printBoxDivider();
+        printBoxLine("Hearts: " + currentPet.hearts + "/5");
+        printBoxLine("Correct Answers: " + currentPet.correctAnswers);
+        printBoxBottom();
+        System.out.println();
+        System.out.print("  Your answer: ");
+        String answer = scanner.nextLine().trim();
+
+        String correctAnswer = (String) question.get("answer");
+        if (answer.equalsIgnoreCase(correctAnswer)) {
+            handleCorrectAnswer();
+        } else {
+            handleWrongAnswer(correctAnswer);
+        }
+    }
+
+    private static Map<String, Object> getRandomQuestion() {
+        String quizJson = savingSystem.loadConfig("quiz.json");
+        if (quizJson == null) return null;
+
+        List<Map<String, Object>> questions = parseQuestionsJson(quizJson);
+        if (questions.isEmpty()) return null;
+
+        Random rnd = new Random();
+        return questions.get(rnd.nextInt(questions.size()));
+    }
+
+    private static List<Map<String, Object>> parseQuestionsJson(String json) {
+        List<Map<String, Object>> questions = new ArrayList<>();
+        String search = "\"questions\": [";
+        int start = json.indexOf(search);
+        if (start == -1) return questions;
+        start += search.length();
+        int end = json.indexOf("]", start);
+        if (end == -1) return questions;
+        String arrayContent = json.substring(start, end);
+
+        int braceCount = 0;
+        int objStart = -1;
+        for (int i = 0; i < arrayContent.length(); i++) {
+            char c = arrayContent.charAt(i);
+            if (c == '{') {
+                if (braceCount == 0) objStart = i;
+                braceCount++;
+            } else if (c == '}') {
+                braceCount--;
+                if (braceCount == 0 && objStart != -1) {
+                    String obj = arrayContent.substring(objStart, i + 1);
+                    questions.add(parseQuestionObject(obj));
+                    objStart = -1;
+                }
+            }
+        }
+        return questions;
+    }
+
+    private static Map<String, Object> parseQuestionObject(String obj) {
+        Map<String, Object> q = new LinkedHashMap<>();
+        q.put("question", extractJsonString(obj, "question"));
+        q.put("answer", extractJsonString(obj, "answer"));
+        return q;
+    }
+
+    private static String extractJsonString(String json, String key) {
+        String search = "\"" + key + "\": \"";
+        int start = json.indexOf(search);
+        if (start == -1) return "";
+        start += search.length();
+        int end = json.indexOf("\"", start);
+        if (end == -1) return "";
+        return json.substring(start, end);
+    }
+
+    private static void handleCorrectAnswer() {
+        System.out.println();
+        System.out.println("  ✅ Correct! " + currentPet.petName + " is happy!");
+        currentPet.correctAnswers++;
+        currentPet.hunger = Math.min(100, currentPet.hunger + 15);
+        currentPet.happiness = Math.min(100, currentPet.happiness + 10);
+        awardXp("triviaCorrect");
+
+        String oldStage = currentPet.stage;
+        String newStage = savingSystem.getStageForCorrectAnswers(currentPet.correctAnswers);
+        if (!newStage.equals(oldStage)) {
+            currentPet.stage = newStage;
+            showEvolutionMessage(oldStage, newStage);
+        }
+
+        if (savingSystem.isFinalStage(currentPet.stage)) {
+            handleGameWon();
+        }
+
+        System.out.println("  Press Enter to continue...");
+        scanner.nextLine();
+    }
+
+    private static void handleWrongAnswer(String correctAnswer) {
+        System.out.println();
+        System.out.println("  ❌ Wrong! The answer was: " + correctAnswer);
+        currentPet.hearts--;
+        awardXp("triviaWrong");
+        System.out.println("  " + currentPet.petName + " loses a heart! Hearts left: " + currentPet.hearts);
+
+        if (currentPet.hearts <= 0) {
+            handleNoHearts();
+        } else {
+            System.out.println("  Press Enter to continue...");
+            scanner.nextLine();
+        }
+    }
+
+    private static void showEvolutionMessage(String oldStage, String newStage) {
+        Map<String, Object> stageInfo = savingSystem.getStageInfo(newStage);
+        String description = (String) stageInfo.getOrDefault("description", "");
+        String personalityMsg = (String) currentPersonality.getOrDefault("evolutionMessage", "");
+
+        System.out.println();
+        printBoxTop();
+        printBoxCentered("✨ EVOLUTION! ✨");
+        printBoxDivider();
+        printBoxLine(currentPet.petName + " evolved from " + oldStage + " to " + newStage + "!");
+        if (!description.isEmpty()) {
+            printBoxLine(description);
+        }
+        if (!personalityMsg.isEmpty()) {
+            printBoxLine(personalityMsg);
+        }
+        printBoxBottom();
+    }
+
+    private static void handleGameWon() {
+        System.out.println();
+        printBoxTop();
+        printBoxCentered("🏆 CONGRATULATIONS! 🏆");
+        printBoxDivider();
+        printBoxLine(currentPet.petName + " has reached ADULT stage!");
+        printBoxLine("Total correct answers: " + currentPet.correctAnswers);
+        printBoxDivider();
+        printBoxLine("Thanks for playing! Your pet is now fully grown.");
+        printBoxBottom();
+        System.out.println();
+        System.out.println("  Press Enter to return to main menu...");
+        scanner.nextLine();
+        savingSystem.savePet(currentPet);
+        System.out.println("  💾 Final save complete.");
+        System.exit(0);
+    }
+
+    private static void handleNoHearts() {
+        System.out.println();
+        printBoxTop();
+        printBoxCentered("💔 NO HEARTS LEFT");
+        printBoxDivider();
+        printBoxLine(currentPet.petName + " is too tired to continue.");
+        printBoxLine("You must wait 10 minutes before playing again.");
+        printBoxBottom();
+        System.out.println();
+
+        currentPet.lastSeen = LocalDateTime.now();
+        currentPet.hearts = 5; // reset for next session
+        savingSystem.savePet(currentPet);
+
+        System.out.println("  Game saved. Please wait 10 minutes before starting again.");
+        System.out.println("  Press Enter to exit...");
+        scanner.nextLine();
+        System.exit(0);
     }
 
     private static void clearConsole() {
@@ -318,6 +575,7 @@ public class MainPetmenu {
         printStatusHeader(pet);
         printStatusBar("Hunger", pet.hunger, "🍖");
         printStatusBar("Happiness", pet.happiness, "♡");
+        printXpBar(pet);
         printStatusFooter(pet);
     }
 }

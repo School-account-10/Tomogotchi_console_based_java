@@ -3,10 +3,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 public class SavingSystem {
 
@@ -179,6 +181,7 @@ public class SavingSystem {
             "  \"petType\": \"" + escapeJson(pet.petType != null ? pet.petType : "") + "\",\n" +
             "  \"hearts\": " + pet.hearts + ",\n" +
             "  \"correctAnswers\": " + pet.correctAnswers + ",\n" +
+            "  \"xp\": " + pet.xp + ",\n" +
             "  \"stage\": \"" + escapeJson(pet.stage != null ? pet.stage : "egg") + "\"\n" +
             "}";
     }
@@ -216,6 +219,7 @@ public class SavingSystem {
         pet.petType = extractJsonString(content, "petType");
         pet.hearts = extractJsonInt(content, "hearts");
         pet.correctAnswers = extractJsonInt(content, "correctAnswers");
+        pet.xp = extractJsonInt(content, "xp");
         pet.stage = extractJsonString(content, "stage");
         return pet;
     }
@@ -234,5 +238,209 @@ public class SavingSystem {
             System.out.println("Error listing saves: " + e.getMessage());
         }
         return saves;
+    }
+
+    // ---- Stages ----
+
+    public List<Map<String, Object>> loadStages() {
+        String stagesJson = loadConfig("stages.json");
+        if (stagesJson == null) return new ArrayList<>();
+        return parseStagesJson(stagesJson);
+    }
+
+    private List<Map<String, Object>> parseStagesJson(String json) {
+        List<Map<String, Object>> stages = new ArrayList<>();
+        String search = "\"stages\": [";
+        int start = json.indexOf(search);
+        if (start == -1) return stages;
+        start += search.length();
+        int end = json.indexOf("]", start);
+        if (end == -1) return stages;
+        String arrayContent = json.substring(start, end);
+
+        int braceCount = 0;
+        int objStart = -1;
+        for (int i = 0; i < arrayContent.length(); i++) {
+            char c = arrayContent.charAt(i);
+            if (c == '{') {
+                if (braceCount == 0) objStart = i;
+                braceCount++;
+            } else if (c == '}') {
+                braceCount--;
+                if (braceCount == 0 && objStart != -1) {
+                    String obj = arrayContent.substring(objStart, i + 1);
+                    stages.add(parseStageObject(obj));
+                    objStart = -1;
+                }
+            }
+        }
+        return stages;
+    }
+
+    private Map<String, Object> parseStageObject(String obj) {
+        Map<String, Object> stage = new LinkedHashMap<>();
+        stage.put("id", extractJsonInt(obj, "id"));
+        stage.put("name", extractJsonString(obj, "name"));
+        stage.put("minCorrectAnswers", extractJsonInt(obj, "minCorrectAnswers"));
+        stage.put("xpToNext", extractJsonInt(obj, "xpToNext"));
+        stage.put("description", extractJsonString(obj, "description"));
+        return stage;
+    }
+
+    public String getInitialStage() {
+        List<Map<String, Object>> stages = loadStages();
+        if (stages.isEmpty()) return "egg";
+        return (String) stages.get(0).get("name");
+    }
+
+    public String getStageForCorrectAnswers(int correctAnswers) {
+        List<Map<String, Object>> stages = loadStages();
+        String currentStage = stages.get(0).get("name").toString();
+        for (Map<String, Object> stage : stages) {
+            int min = (Integer) stage.get("minCorrectAnswers");
+            if (correctAnswers >= min) {
+                currentStage = (String) stage.get("name");
+            } else {
+                break;
+            }
+        }
+        return currentStage;
+    }
+
+    public Map<String, Object> getStageInfo(String stageName) {
+        List<Map<String, Object>> stages = loadStages();
+        for (Map<String, Object> stage : stages) {
+            if (stage.get("name").equals(stageName)) {
+                return stage;
+            }
+        }
+        return new HashMap<>();
+    }
+
+    public boolean isFinalStage(String stageName) {
+        List<Map<String, Object>> stages = loadStages();
+        if (stages.isEmpty()) return false;
+        return stages.get(stages.size() - 1).get("name").equals(stageName);
+    }
+
+    public String getNextStage(String currentStage) {
+        List<Map<String, Object>> stages = loadStages();
+        for (int i = 0; i < stages.size(); i++) {
+            if (stages.get(i).get("name").equals(currentStage)) {
+                if (i + 1 < stages.size()) {
+                    return (String) stages.get(i + 1).get("name");
+                }
+                return currentStage;
+            }
+        }
+        return currentStage;
+    }
+
+    public int getXpToNext(String stageName) {
+        List<Map<String, Object>> stages = loadStages();
+        for (Map<String, Object> stage : stages) {
+            if (stage.get("name").equals(stageName)) {
+                return (Integer) stage.getOrDefault("xpToNext", 0);
+            }
+        }
+        return 0;
+    }
+
+    public Map<String, Integer> getXpRewards() {
+        String stagesJson = loadConfig("stages.json");
+        if (stagesJson == null) return new HashMap<>();
+        Map<String, Integer> rewards = new HashMap<>();
+        String search = "\"xpRewards\": {";
+        int start = stagesJson.indexOf(search);
+        if (start == -1) return rewards;
+        start += search.length();
+        int end = stagesJson.indexOf("}", start);
+        if (end == -1) return rewards;
+        String obj = stagesJson.substring(start, end);
+        String[] pairs = obj.split(",");
+        for (String pair : pairs) {
+            String[] kv = pair.split(":");
+            if (kv.length == 2) {
+                String key = kv[0].trim().replaceAll("\"", "");
+
+
+                int val = Integer.parseInt(kv[1].trim());
+                rewards.put(key, val);
+            }
+        }
+        return rewards;
+    }
+
+    public int getXpReward(String action) {
+        Map<String, Integer> rewards = getXpRewards();
+        return rewards.getOrDefault(action, 0);
+    }
+
+    // XP = military_time (HHMM) - 0.06 * stage_id
+    public int calculateXpReward(int stageId) {
+        LocalTime now = LocalTime.now();
+        int militaryTime = now.getHour() * 100 + now.getMinute();
+        double xp = militaryTime - (0.06 * stageId);
+        return (int) Math.max(1, Math.round(xp));
+    }
+
+    // ---- Sprites ----
+
+    public List<String> getSprite(String petType) {
+        String spritesJson = loadConfig("sprites.json");
+        if (spritesJson == null) return new ArrayList<>();
+        return parseSprite(spritesJson, petType);
+    }
+
+    private List<String> parseSprite(String json, String petType) {
+        List<String> lines = new ArrayList<>();
+        String search = "\"" + petType + "\": [";
+        int start = json.indexOf(search);
+        if (start == -1) return lines;
+        start += search.length();
+        int end = json.indexOf("]", start);
+        if (end == -1) return lines;
+        String arrayContent = json.substring(start, end);
+
+        String[] items = arrayContent.split(",");
+        for (String item : items) {
+            item = item.trim();
+            if (item.startsWith("\"") && item.endsWith("\"")) {
+                String line = item.substring(1, item.length() - 1);
+                line = unescapeJson(line);
+                lines.add(line);
+            }
+        }
+        return lines;
+    }
+
+    public String unescapeJson(String s) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '\\' && i + 1 < s.length()) {
+                i++;
+                char e = s.charAt(i);
+                switch (e) {
+                    case 'n':  sb.append('\n'); break;
+                    case 'r':  sb.append('\r'); break;
+                    case 't':  sb.append('\t'); break;
+                    case '"':  sb.append('"');  break;
+                    case '\\': sb.append('\\'); break;
+                    case 'u':
+                        if (i + 4 < s.length()) {
+                            sb.append((char) Integer.parseInt(s.substring(i + 1, i + 5), 16));
+                            i += 4;
+                        } else {
+                            sb.append('u');
+                        }
+                        break;
+                    default: sb.append(e);
+                }
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 }

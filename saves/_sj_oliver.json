@@ -1,0 +1,14 @@
+{
+  "petName": "oliver",
+  "petId": 48819,
+  "hunger": 86,
+  "happiness": 71,
+  "lastSeen": "2026-10-04T19:26:23.085979825",
+  "ispetexisting": true,
+  "ownerName": " sj",
+  "petType": "cat",
+  "hearts": 5,
+  "correctAnswers": 0,
+  "xp": 0,
+  "stage": "egg"
+}

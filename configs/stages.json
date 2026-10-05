@@ -1,0 +1,18 @@
+{
+  "stages": [
+    { "id": 1, "name": "egg", "minCorrectAnswers": 0, "xpToNext": 0, "description": "Just an egg, waiting to hatch..." },
+    { "id": 2, "name": "newborn", "minCorrectAnswers": 1, "xpToNext": 50, "description": "Freshly hatched, tiny and fragile." },
+    { "id": 3, "name": "baby", "minCorrectAnswers": 2, "xpToNext": 100, "description": "Learning to crawl and explore." },
+    { "id": 4, "name": "toddler", "minCorrectAnswers": 4, "xpToNext": 200, "description": "Wobbling around, getting curious." },
+    { "id": 5, "name": "kid", "minCorrectAnswers": 6, "xpToNext": 350, "description": "Full of energy, asking questions." },
+    { "id": 6, "name": "pre teen", "minCorrectAnswers": 8, "xpToNext": 550, "description": "Growing fast, developing personality." },
+    { "id": 7, "name": "teen", "minCorrectAnswers": 10, "xpToNext": 800, "description": "Moody but capable, almost grown." },
+    { "id": 8, "name": "adult", "minCorrectAnswers": 12, "xpToNext": 0, "description": "Fully evolved! A loyal companion." }
+  ],
+  "xpRewards": {
+    "feed": 10,
+    "triviaCorrect": 25,
+    "triviaWrong": 5,
+    "play": 15
+  }
+}
