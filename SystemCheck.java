@@ -162,10 +162,10 @@ public class SystemCheck {
             }
             p.waitFor();
             String ollamaOutput = output.toString();
-            for (String l : ollamaOutput.split("\s+")) {
-                l = l.trim();
-                if (l.isEmpty() || l.startsWith("NAME") || l.startsWith("---")) continue;
-                String[] parts = l.split("\s+");
+            for (String mLine : ollamaOutput.split("\n")) {
+                mLine = mLine.trim();
+                if (mLine.isEmpty() || mLine.startsWith("NAME") || mLine.startsWith("---")) continue;
+                String[] parts = mLine.split("\s+");
                 if (parts.length > 0) models.add(parts[0]);
             }
         } catch (Exception e) {
@@ -214,6 +214,7 @@ public class SystemCheck {
                         try {
                             ProcessBuilder preloadPb = new ProcessBuilder("ollama", "run", chatModel, "hi");
                             preloadPb.redirectErrorStream(true);
+                            preloadPb.redirectInput(new java.io.File("/dev/null"));
                             Process preloadP = preloadPb.start();
                             preloadP.waitFor();
                             System.out.println(" done!");
@@ -250,7 +251,7 @@ public class SystemCheck {
         if (modelName == null) return false;
         String lower = modelName.toLowerCase();
         // Exclude known non-chat model families
-        if (lower.contains("embedding") || lower.contains("ocr")) return false;
+        if (lower.contains("embed") || lower.contains("ocr")) return false;
         return true;
     }
 

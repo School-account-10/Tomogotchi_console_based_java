@@ -14,6 +14,7 @@ public class MainPetmenu {
     private static final SavingSystem savingSystem = new SavingSystem();
     private static Starter.Pet currentPet;
     private static Map<String, Object> currentPersonality;
+    private static boolean renderWindows = true;
 
     private static final int BOX_WIDTH = 50;
 
@@ -174,6 +175,43 @@ public class MainPetmenu {
         printBoxDivider();
     }
 
+    private static void printPetStatus(Starter.Pet pet) {
+        // ─── Pet window (top): sprite + identity ───
+        System.out.println();
+        printBoxTop();
+        printBoxCentered("🐾 " + pet.petName + " 🐾");
+        List<String> sprite = savingSystem.getSprite(pet.petType.toLowerCase());
+        if (!sprite.isEmpty()) {
+            for (String s : sprite) {
+                printBoxCentered(s);
+            }
+        }
+        printBoxDivider();
+        printBoxLine(String.format("%-8s %s", "Name:", pet.petName));
+        printBoxLine(String.format("%-8s %s", "Owner:", pet.ownerName));
+        printBoxLine(String.format("%-8s %s", "Type:", pet.petType));
+        printBoxLine(String.format("%-8s %s", "Stage:", pet.stage));
+        printBoxBottom();
+
+        // ─── Status window (below): live stats ───
+        System.out.println();
+        printBoxTop();
+        printBoxCentered("📊 STATUS");
+        printBoxDivider();
+        printBoxLine("Hearts: " + pet.hearts);
+        printXpBar(pet);
+        int neededPerfect = savingSystem.getPerfectScoresNeeded(pet.stage);
+        printBoxLine("⭐ " + String.format("%-10s %d/%d perfect quizzes", "Progress:", pet.perfectScoresInStage, neededPerfect));
+        if (currentPersonality != null) {
+            @SuppressWarnings("unchecked")
+            List<String> traits = (List<String>) currentPersonality.get("traits");
+            if (traits != null && !traits.isEmpty()) {
+                printBoxLine("Personality: " + String.join(", ", traits));
+            }
+        }
+        printBoxBottom();
+    }
+
     private static void printSprite(String petType) {
         List<String> sprite = savingSystem.getSprite(petType.toLowerCase());
         if (sprite.isEmpty()) {
@@ -301,12 +339,10 @@ public class MainPetmenu {
     }
 
     private static void gameLoop() {
-        System.out.println();
-        printBoxTop();
-        printBoxCentered("Your pet " + currentPet.petName + " is ready for adventure!");
-        printBoxBottom();
-
         while (true) {
+            if (renderWindows) {
+                printPetStatus(currentPet);
+            }
             printActionMenu();
 
             String action = scanner.nextLine();
@@ -330,6 +366,7 @@ public class MainPetmenu {
                 return false;
             case "4":
                 showPetStatus(currentPet);
+                renderWindows = false;
                 return false;
             case "5":
                 saveAndQuit();
