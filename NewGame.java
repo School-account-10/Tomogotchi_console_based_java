@@ -25,23 +25,48 @@ public class NewGame {
             return null;
         }
 
+
+
         savingSystem.savePet(pet);
         return pet;
     }
 
     private static boolean askForRulesAgreement(Scanner scanner) {
+        String answer;
         printRules();
         System.out.print("  Do you agree to the rules? (yes/no): ");
-        String answer = scanner.nextLine().trim().toLowerCase();
+        answer = null;
+        answer = scanner.nextLine().trim().toLowerCase();
+        scanner.next();
+        switch(answer) {
+            case "y":
+                System.out.println("  Great! Let's get started.");
+                return true;
+            case "yes":
+                System.out.println("  Great! Let's get started.");
+                return true;
+            case "n":
+                System.out.println("  Okay, no hard feelings. Goodbye!");
+                return false;
+            case "no":
+                System.out.println("  Okay, no hard feelings. Goodbye!");
+                return false;
+            default:
+                printRules();
+                askForRulesAgreement(scanner);
+                return false;
 
-        if (answer.equals("yes") || answer.equals("y")) {
-            System.out.println("  Great! Let's get started.");
-            return true;
+
+
+
         }
 
-        System.out.println("  Okay, no hard feelings. Goodbye!");
-        return false;
-    }
+          }
+
+
+
+
+
 
     private static void printRules() {
         System.out.println();

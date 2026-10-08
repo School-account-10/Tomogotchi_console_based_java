@@ -2,7 +2,7 @@
   "startHearts": 5,
   "goalAnswers": 10,
   "waitMinutes": 10,
-  "validPets": ["cat", "dog", "bunny", "bird"],
+  "validPets": ["cat", "dog", "bunny"],
   "blockedWords": ["stupid", "idiot", "dumb", "hate", "kill", "ugly"],
   "correctMessage": "That's correct! Your pet has food now, you can feed it! and see how it grows!",
   "wrongMessage": "Oops! That's the wrong answer. :(",

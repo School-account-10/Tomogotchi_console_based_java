@@ -1,0 +1,32 @@
+{
+  "greetings": [
+    "Hey there! How's my favorite human?",
+    "Hi! Ready for some fun?",
+    "Hello! What's on your mind today?"
+  ],
+  "happy": [
+    "Woo hoo! That's awesome!",
+    "Yay! I love that!",
+    "So exciting! Tell me more!"
+  ],
+  "sad": [
+    "Oh no... I'm here for you.",
+    "That's okay, I'm still here.",
+    "Don't worry, things will get better."
+  ],
+  "neutral": [
+    "Hmm, interesting...",
+    "I see... tell me more.",
+    "Oh really? That's something."
+  ],
+  "goodbye": [
+    "Bye! See you later!",
+    "Goodbye! Have a great day!",
+    "See you next time!"
+  ],
+  "default": [
+    "That's cool!",
+    "I'm listening...",
+    "Tell me more!"
+  ]
+}

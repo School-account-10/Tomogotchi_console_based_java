@@ -1,4 +1,6 @@
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -20,8 +22,16 @@ public class SystemCheck {
 
     public static final Scanner SCANNER = new Scanner(System.in);
 
+    // Chat config
+    public static boolean chatEnabled = false;
+    public static String chatModel = null;
+    public static boolean chatUseOllama = false;
+
     public static boolean run() {
         printCheckHeader();
+
+        // Chat setup
+        setupChat();
 
         boolean allGood = checkRequiredDirectories() && checkRequiredConfigFiles();
 
@@ -96,10 +106,123 @@ public class SystemCheck {
         return false;
     }
 
-    // ------------------------------------------------------------------
-    //  CODE BACKUP + VANITY CHECK
-    // ------------------------------------------------------------------
+    // ---- Chat Setup ----
 
+    private static void setupChat() {
+        // Check if Ollama is installed first
+        boolean ollamaInstalled = false;
+        ProcessBuilder pb;
+        Process p;
+        try {
+            // Try which ollama first
+            pb = new ProcessBuilder("which", "ollama");
+            p = pb.start();
+            int exitCode = p.waitFor();
+            if (exitCode == 0) {
+                ollamaInstalled = true;
+            } else {
+                // Fallback: check common installation paths
+                String[] ollamaPaths = {
+                    "/usr/local/bin/ollama",
+                    "/usr/bin/ollama",
+                    "/opt/homebrew/bin/ollama",
+                    System.getProperty("user.home") + "/.local/bin/ollama"
+                };
+                for (String path : ollamaPaths) {
+                    java.io.File file = new java.io.File(path);
+                    if (file.exists() && file.canExecute()) {
+                        ollamaInstalled = true;
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // If all else fails, assume not installed
+            ollamaInstalled = false;
+        }
+
+        if (!ollamaInstalled) {
+            System.out.println("  Ollama not found. Chat requires Ollama installed.");
+            System.out.println("  Install Ollama: https://ollama.ai");
+            chatEnabled = false;
+            chatUseOllama = false;
+            return;
+        }
+
+        // List available models first
+        List<String> models = new ArrayList<>();
+        try {
+            pb = new ProcessBuilder("ollama", "list");
+            p = pb.start();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+            StringBuilder output = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.append(line).append("\n");
+            }
+            p.waitFor();
+            String ollamaOutput = output.toString();
+            for (String l : ollamaOutput.split("\n")) {
+                l = l.trim();
+                if (l.isEmpty() || l.startsWith("NAME") || l.startsWith("---")) continue;
+                String[] parts = l.split("\s+");
+                if (parts.length > 0) models.add(parts[0]);
+            }
+        } catch (Exception e) {
+            System.out.println("  Error listing models: " + e.getMessage());
+        }
+
+        // Show model options
+        System.out.println();
+        System.out.println("  ==========================================");
+        System.out.println("           AVAILABLE MODELS");
+        System.out.println("  ==========================================");
+        System.out.println();
+        if (models.isEmpty()) {
+            System.out.println("  No models found. Chat will use JSON fallback.");
+            chatUseOllama = false;
+        } else {
+            java.util.Map<String, String> modelDesc = new java.util.HashMap<>();
+            modelDesc.put("qwen3-embedding:4b", "General purpose, balanced");
+            modelDesc.put("qwen3-embedding:0.6b", "Fast, lightweight");
+            modelDesc.put("nomic-embed-text:latest", "Text embeddings");
+            modelDesc.put("glm-ocr:q8_0", "OCR / image text");
+            modelDesc.put("nomic-embed-text-v2-moe:latest", "Advanced embeddings");
+            for (int i = 0; i < models.size(); i++) {
+                String m = models.get(i);
+                String desc = modelDesc.getOrDefault(m, "Chat model");
+                System.out.println("    " + (i + 1) + ". " + m + " - " + desc);
+            }
+            System.out.println();
+            System.out.print("  Choose a model (1-" + models.size() + "): ");
+            while (true) {
+                try {
+                    int idx = Integer.parseInt(SCANNER.nextLine().trim()) - 1;
+                    if (idx >= 0 && idx < models.size()) {
+                        chatModel = models.get(idx);
+                        System.out.println("  Using model: " + chatModel);
+                        break;
+                    }
+                    System.out.print("  Invalid choice. Try again (1-" + models.size() + "): ");
+                } catch (NumberFormatException e) {
+                    System.out.print("  Invalid choice. Try again (1-" + models.size() + "): ");
+                }
+            }
+        }
+
+        System.out.println();
+        System.out.print("  Enable chat? (yes/no): ");
+        String answer = SCANNER.nextLine().trim().toLowerCase();
+        if (!answer.equals("yes") && !answer.equals("y")) {
+            System.out.println("  Chat disabled.");
+            chatEnabled = false;
+            return;
+        }
+        chatEnabled = true;
+        chatUseOllama = !models.isEmpty();
+
+        System.out.println("  Chat enabled with " + chatModel + "!");
+    }
     private static boolean runCodeBackupCheck(Scanner scanner) {
         Path backupDir = Paths.get(System.getProperty("user.dir"), BACKUP_DIR);
         Path backupPath = backupDir.resolve(BACKUP_FILE);

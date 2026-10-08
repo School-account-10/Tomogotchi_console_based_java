@@ -4,10 +4,13 @@ import java.nio.file.Paths;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Random;
 import java.util.LinkedHashMap;
 
 public class SavingSystem {
@@ -107,6 +110,7 @@ public class SavingSystem {
         String petJson = personalitiesJson.substring(petStart, i - 1);
 
         personality.put("greeting", extractJsonString(petJson, "greeting"));
+        personality.put("personality", extractJsonString(petJson, "personality"));
         personality.put("feedReaction", extractJsonString(petJson, "feedReaction"));
         personality.put("playReaction", extractJsonString(petJson, "playReaction"));
         personality.put("evolutionMessage", extractJsonString(petJson, "evolutionMessage"));
@@ -346,6 +350,22 @@ public class SavingSystem {
         return 0;
     }
 
+    // Returns perfect scores needed for next stage (1 for most stages)
+    public int getPerfectScoresNeeded(String currentStage) {
+        List<Map<String, Object>> stages = loadStages();
+        for (int i = 0; i < stages.size(); i++) {
+            if (stages.get(i).get("name").equals(currentStage)) {
+                if (i + 1 < stages.size()) {
+                    int currentMin = (Integer) stages.get(i).get("minCorrectAnswers");
+                    int nextMin = (Integer) stages.get(i + 1).get("minCorrectAnswers");
+                    return Math.max(1, nextMin - currentMin);
+                }
+                return 1;
+            }
+        }
+        return 1;
+    }
+
     public Map<String, Integer> getXpRewards() {
         String stagesJson = loadConfig("stages.json");
         if (stagesJson == null) return new HashMap<>();
@@ -382,6 +402,82 @@ public class SavingSystem {
         int militaryTime = now.getHour() * 100 + now.getMinute();
         double xp = militaryTime - (0.06 * stageId);
         return (int) Math.max(1, Math.round(xp));
+    }
+
+    // Chat XP: random, ~50-70% of regular XP
+    public int getChatXpReward(int stageId) {
+        int base = calculateXpReward(stageId);
+        Random rnd = new Random();
+        double multiplier = 0.5 + rnd.nextDouble() * 0.2; // 0.5 to 0.7
+        return (int) Math.max(1, Math.round(base * multiplier));
+    }
+
+    // ---- Chat Rate Limiting ----
+    private static final int MAX_CHAT_INTERACTIONS = 6;
+    private static final long CHAT_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+    public boolean canChat() {
+        List<Long> timestamps = loadChatTimestamps();
+        long now = System.currentTimeMillis();
+        // Remove timestamps older than 4 hours
+        timestamps.removeIf(t -> (now - t) > CHAT_COOLDOWN_MS);
+        saveChatTimestamps(timestamps);
+        return timestamps.size() < MAX_CHAT_INTERACTIONS;
+    }
+
+    public int getRemainingChatSlots() {
+        List<Long> timestamps = loadChatTimestamps();
+        long now = System.currentTimeMillis();
+        timestamps.removeIf(t -> (now - t) > CHAT_COOLDOWN_MS);
+        saveChatTimestamps(timestamps);
+        return Math.max(0, MAX_CHAT_INTERACTIONS - timestamps.size());
+    }
+
+    public void recordChatInteraction() {
+        List<Long> timestamps = loadChatTimestamps();
+        long now = System.currentTimeMillis();
+        timestamps.add(now);
+        saveChatTimestamps(timestamps);
+    }
+
+    private List<Long> loadChatTimestamps() {
+        Path chatFile = Paths.get(System.getProperty("user.dir"), "saves", "chat_timestamps.json");
+        List<Long> timestamps = new ArrayList<>();
+        try {
+            if (Files.exists(chatFile)) {
+                String content = new String(Files.readAllBytes(chatFile));
+                // Simple parsing: ["timestamp1","timestamp2",...]
+                content = content.trim();
+                if (content.startsWith("[") && content.endsWith("]")) {
+                    content = content.substring(1, content.length() - 1);
+                    for (String s : content.split(",")) {
+                        s = s.trim();
+                        if (!s.isEmpty()) {
+                            timestamps.add(Long.parseLong(s));
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            timestamps.clear();
+        }
+        return timestamps;
+    }
+
+    private void saveChatTimestamps(List<Long> timestamps) {
+        try {
+            Path chatFile = Paths.get(System.getProperty("user.dir"), "saves", "chat_timestamps.json");
+            Files.createDirectories(chatFile.getParent());
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < timestamps.size(); i++) {
+                if (i > 0) sb.append(",");
+                sb.append(timestamps.get(i));
+            }
+            sb.append("]");
+            Files.writeString(chatFile, sb.toString());
+        } catch (Exception e) {
+            // silently fail
+        }
     }
 
     // ---- Sprites ----
@@ -442,5 +538,65 @@ public class SavingSystem {
             }
         }
         return sb.toString();
+    }
+
+    // ---- Chat ----
+
+    public String getChatResponse(Starter.Pet pet, String userMessage) {
+        if (SystemCheck.chatUseOllama && SystemCheck.chatModel != null) {
+            return getOllamaResponse(pet, userMessage);
+        } else {
+            return getFallbackResponse(pet, userMessage);
+        }
+    }
+
+    private String getOllamaResponse(Starter.Pet pet, String userMessage) {
+        try {
+            String personality = (String) extractPetPersonality(pet.petType).getOrDefault("personality", "friendly");
+            String prompt = "You are " + pet.petName + ", a " + personality + " " + pet.petType + ". Do not talk about complicated topics. Respond to: " + userMessage;
+            ProcessBuilder pb = new ProcessBuilder("ollama", "run", SystemCheck.chatModel, prompt);
+            Process p = pb.start();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+            StringBuilder output = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.append(line).append("\n");
+            }
+            p.waitFor();
+            String result = output.toString().trim();
+            // Limit to 600 tokens (~2400 chars)
+            if (result.length() > 2400) {
+                result = result.substring(0, 2400);
+                int lastSpace = result.lastIndexOf(' ');
+                if (lastSpace > 2000) result = result.substring(0, lastSpace);
+            }
+            return result;
+        } catch (Exception e) {
+            return "Sorry, I couldn't process that.";
+        }
+    }
+
+    private String getFallbackResponse(Starter.Pet pet, String userMessage) {
+        String responsesJson = loadConfig("chat_responses.json");
+        if (responsesJson == null) return "Hmm...";
+
+        String lowerMsg = userMessage.toLowerCase();
+        List<String> responses = new ArrayList<>();
+
+        if (lowerMsg.contains("hello") || lowerMsg.contains("hi") || lowerMsg.contains("hey")) {
+            responses = extractJsonStringArray(responsesJson, "greetings");
+        } else if (lowerMsg.contains("good") || lowerMsg.contains("great") || lowerMsg.contains("awesome")) {
+            responses = extractJsonStringArray(responsesJson, "happy");
+        } else if (lowerMsg.contains("sad") || lowerMsg.contains("bad") || lowerMsg.contains("sorry")) {
+            responses = extractJsonStringArray(responsesJson, "sad");
+        } else if (lowerMsg.contains("bye") || lowerMsg.contains("goodbye")) {
+            responses = extractJsonStringArray(responsesJson, "goodbye");
+        } else {
+            responses = extractJsonStringArray(responsesJson, "default");
+        }
+
+        if (responses.isEmpty()) return "Hmm...";
+        Random rnd = new Random();
+        return responses.get(rnd.nextInt(responses.size()));
     }
 }

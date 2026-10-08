@@ -148,9 +148,10 @@ public class MainPetmenu {
         printBoxDivider();
         printBoxLine("1. 🍖 Feed");
         printBoxLine("2. 🎾 Play (Trivia)");
-        printBoxLine("3. 📊 View Stats");
-        printBoxLine("4. 💾 Save & Quit");
-        printBoxLine("5. 🏠 Return to Main Menu");
+        printBoxLine("3. 💬 Chat");
+        printBoxLine("4. 📊 View Stats");
+        printBoxLine("5. 💾 Save & Quit");
+        printBoxLine("6. 🏠 Return to Main Menu");
         printBoxBottom();
         System.out.print("▶ ");
     }
@@ -196,11 +197,9 @@ public class MainPetmenu {
     private static void printXpBar(Starter.Pet pet) {
         int xpToNext = savingSystem.getXpToNext(pet.stage);
         
-        // Egg stage: levels via correct answers, not XP
+        // Egg stage: no XP bar, hatch via perfect quiz
         if ("egg".equals(pet.stage)) {
-            int needed = 1 - pet.correctAnswers;
-            if (needed < 0) needed = 0;
-            printBoxLine("⭐ " + String.format("%-10s %d/1 correct answers", "Progress:", pet.correctAnswers));
+            printBoxLine("⭐ " + String.format("%-10s %s", "Progress:", "HATCH via perfect quiz"));
             return;
         }
         
@@ -227,7 +226,10 @@ public class MainPetmenu {
 
     private static void printStatusFooter(Starter.Pet pet) {
         printBoxDivider();
-        printBoxLine("Hearts: " + pet.hearts + "    Correct Answers: " + pet.correctAnswers);
+        // Perfect score to level up
+        int neededPerfect = savingSystem.getPerfectScoresNeeded(pet.stage);
+        printBoxLine("⭐ " + String.format("%-10s %d/%d perfect score to level up", "Progress:", pet.correctAnswers, neededPerfect));
+        printBoxLine("Hearts: " + pet.hearts);
         printBoxLine("Last seen: " + pet.lastSeen);
         if (currentPersonality != null) {
             @SuppressWarnings("unchecked")
@@ -313,17 +315,86 @@ public class MainPetmenu {
                 playTrivia();
                 return false;
             case "3":
-                showPetStatus(currentPet);
+                chat();
                 return false;
             case "4":
+                showPetStatus(currentPet);
+                return false;
+            case "5":
                 saveAndQuit();
                 return true;
-            case "5":
+            case "6":
                 System.out.println("  ↩ Returning to main menu...");
                 return true;
             default:
                 System.out.println("  ⚠ Invalid action. Please try again.");
                 return false;
+        }
+    }
+
+    // ---- Chat ----
+
+    private static void chat() {
+        if (!SystemCheck.chatEnabled) {
+            System.out.println("  Chat is disabled. Enable it in System Check.");
+            System.out.println("  Press Enter to continue...");
+            SystemCheck.SCANNER.nextLine();
+            return;
+        }
+
+        int remaining = savingSystem.getRemainingChatSlots();
+        if (remaining <= 0) {
+            System.out.println("  " + currentPet.petName + " is tired of chatting! Come back later.");
+            System.out.println("  Press Enter to continue...");
+            SystemCheck.SCANNER.nextLine();
+            return;
+        }
+
+        System.out.println();
+        printBoxTop();
+        printBoxCentered("💬 CHAT");
+        printBoxDivider();
+        printBoxLine("  Talk to your pet! Type 'exit' to quit.");
+        printBoxLine("  Remaining chats: " + remaining + "/6");
+        printBoxBottom();
+        System.out.println();
+
+        while (true) {
+            System.out.print("  You: ");
+            String input = SystemCheck.SCANNER.nextLine().trim();
+            if (input.equalsIgnoreCase("exit")) {
+                System.out.println("  " + currentPet.petName + " says goodbye!");
+                break;
+            }
+            if (input.isEmpty()) continue;
+
+            remaining = savingSystem.getRemainingChatSlots();
+            if (remaining <= 0) {
+                System.out.println();
+                printBoxTop();
+                printBoxCentered("💬 " + currentPet.petName);
+                printBoxDivider();
+                printBoxLine("  I'm all chatted out for now. See you later!");
+                printBoxBottom();
+                System.out.println();
+                break;
+            }
+
+            String response = savingSystem.getChatResponse(currentPet, input);
+            int chatXp = savingSystem.getChatXpReward(getStageId(currentPet.stage));
+            currentPet.xp += chatXp;
+            savingSystem.recordChatInteraction();
+
+            System.out.println();
+            printBoxTop();
+            printBoxCentered("💬 " + currentPet.petName);
+            printBoxDivider();
+            printBoxLine("  " + response);
+            printBoxLine("  ⭐ +" + chatXp + " XP (chat)");
+            printBoxBottom();
+            System.out.println();
+
+            checkLevelUp();
         }
     }
 
