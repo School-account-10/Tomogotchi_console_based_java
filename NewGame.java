@@ -37,7 +37,6 @@ public class NewGame {
         System.out.print("  Do you agree to the rules? (yes/no): ");
         answer = null;
         answer = scanner.nextLine().trim().toLowerCase();
-        scanner.next();
         switch(answer) {
             case "y":
                 System.out.println("  Great! Let's get started.");

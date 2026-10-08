@@ -1,0 +1,15 @@
+{
+  "petName": "asdfsd",
+  "petId": 93536,
+  "hunger": 90,
+  "happiness": 77,
+  "lastSeen": "2026-10-08T20:43:46.962323111",
+  "ispetexisting": true,
+  "ownerName": "sdfseadcs",
+  "petType": "cat",
+  "hearts": 5,
+  "correctAnswers": 0,
+  "perfectScoresInStage": 0,
+  "xp": 0,
+  "stage": "egg"
+}

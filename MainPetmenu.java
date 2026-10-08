@@ -151,7 +151,7 @@ public class MainPetmenu {
         printBoxLine("3. 💬 Chat");
         printBoxLine("4. 📊 View Stats");
         printBoxLine("5. 💾 Save & Quit");
-        printBoxLine("6. 🏠 Return to Main Menu");
+
         printBoxBottom();
         System.out.print("▶ ");
     }
@@ -196,19 +196,26 @@ public class MainPetmenu {
 
     private static void printXpBar(Starter.Pet pet) {
         int xpToNext = savingSystem.getXpToNext(pet.stage);
-        
-        // Egg stage: no XP bar, hatch via perfect quiz
+
+        // Egg stage: show hatch progress bar
         if ("egg".equals(pet.stage)) {
-            printBoxLine("⭐ " + String.format("%-10s %s", "Progress:", "HATCH via perfect quiz"));
+            int neededPerfect = savingSystem.getPerfectScoresNeeded(pet.stage);
+            int pct = neededPerfect > 0 ? (pet.perfectScoresInStage * 100) / neededPerfect : 0;
+            int bars = pct / 10;
+            StringBuilder bar = new StringBuilder();
+            for (int i = 0; i < 10; i++) {
+                bar.append(i < bars ? "█" : "░");
+            }
+            printBoxLine("⭐ " + String.format("%-10s %d/%d [%s]", "HATCH:", pet.perfectScoresInStage, neededPerfect, bar));
             return;
         }
-        
+
         // Adult stage: max level
         if (savingSystem.isFinalStage(pet.stage)) {
             printBoxLine("⭐ " + String.format("%-10s MAX LEVEL", "XP:"));
             return;
         }
-        
+
         // Other stages: show XP progress
         if (xpToNext <= 0) {
             printBoxLine("⭐ " + String.format("%-10s MAX LEVEL", "XP:"));
@@ -226,9 +233,9 @@ public class MainPetmenu {
 
     private static void printStatusFooter(Starter.Pet pet) {
         printBoxDivider();
-        // Perfect score to level up
+        // Perfect quiz counter (always shown for all stages)
         int neededPerfect = savingSystem.getPerfectScoresNeeded(pet.stage);
-        printBoxLine("⭐ " + String.format("%-10s %d/%d perfect score to level up", "Progress:", pet.correctAnswers, neededPerfect));
+        printBoxLine("⭐ " + String.format("%-10s %d/%d perfect quizzes", "Progress:", pet.perfectScoresInStage, neededPerfect));
         printBoxLine("Hearts: " + pet.hearts);
         printBoxLine("Last seen: " + pet.lastSeen);
         if (currentPersonality != null) {
@@ -261,6 +268,11 @@ public class MainPetmenu {
         if (selection >= 0 && selection < saves.size()) {
             Starter.Pet loadedPet = savingSystem.loadPet(saves.get(selection));
             if (loadedPet != null) {
+                // Initialize perfectScoresInStage for old save files that don't have it
+                if (loadedPet.perfectScoresInStage == 0 && loadedPet.correctAnswers > 0) {
+                    loadedPet.perfectScoresInStage = Math.min(loadedPet.correctAnswers,
+                        savingSystem.getPerfectScoresNeeded(loadedPet.stage));
+                }
                 System.out.println("  ✅ Pet loaded successfully!");
                 return loadedPet;
             }
@@ -295,7 +307,6 @@ public class MainPetmenu {
         printBoxBottom();
 
         while (true) {
-            showPetStatus(currentPet);
             printActionMenu();
 
             String action = scanner.nextLine();
@@ -323,9 +334,6 @@ public class MainPetmenu {
             case "5":
                 saveAndQuit();
                 return true;
-            case "6":
-                System.out.println("  ↩ Returning to main menu...");
-                return true;
             default:
                 System.out.println("  ⚠ Invalid action. Please try again.");
                 return false;
@@ -342,7 +350,7 @@ public class MainPetmenu {
             return;
         }
 
-        int remaining = savingSystem.getRemainingChatSlots();
+        int remaining = savingSystem.getRemainingChatSlots(currentPet);
         if (remaining <= 0) {
             System.out.println("  " + currentPet.petName + " is tired of chatting! Come back later.");
             System.out.println("  Press Enter to continue...");
@@ -368,7 +376,7 @@ public class MainPetmenu {
             }
             if (input.isEmpty()) continue;
 
-            remaining = savingSystem.getRemainingChatSlots();
+            remaining = savingSystem.getRemainingChatSlots(currentPet);
             if (remaining <= 0) {
                 System.out.println();
                 printBoxTop();
@@ -383,7 +391,7 @@ public class MainPetmenu {
             String response = savingSystem.getChatResponse(currentPet, input);
             int chatXp = savingSystem.getChatXpReward(getStageId(currentPet.stage));
             currentPet.xp += chatXp;
-            savingSystem.recordChatInteraction();
+            savingSystem.recordChatInteraction(currentPet);
 
             System.out.println();
             printBoxTop();
@@ -437,15 +445,35 @@ public class MainPetmenu {
     }
 
     private static void checkLevelUp() {
+        boolean leveledUp = false;
+        String oldStage = currentPet.stage;
+
+        // Check XP track
         int xpToNext = savingSystem.getXpToNext(currentPet.stage);
         if (xpToNext > 0 && currentPet.xp >= xpToNext) {
             String nextStage = savingSystem.getNextStage(currentPet.stage);
             if (!nextStage.equals(currentPet.stage)) {
-                String oldStage = currentPet.stage;
                 currentPet.stage = nextStage;
-                currentPet.xp = 0;
-                showEvolutionMessage(oldStage, nextStage);
+                leveledUp = true;
             }
+        }
+
+        // Check perfect scores track (only if not already leveled up via XP)
+        if (!leveledUp) {
+            int neededPerfect = savingSystem.getPerfectScoresNeeded(currentPet.stage);
+            if (neededPerfect > 0 && currentPet.perfectScoresInStage >= neededPerfect) {
+                String nextStage = savingSystem.getNextStage(currentPet.stage);
+                if (!nextStage.equals(currentPet.stage)) {
+                    currentPet.stage = nextStage;
+                    leveledUp = true;
+                }
+            }
+        }
+
+        if (leveledUp) {
+            currentPet.xp = 0;
+            currentPet.perfectScoresInStage = 0;
+            showEvolutionMessage(oldStage, currentPet.stage);
         }
     }
 
@@ -545,19 +573,15 @@ public class MainPetmenu {
         System.out.println();
         System.out.println("  ✅ Correct! " + currentPet.petName + " is happy!");
         currentPet.correctAnswers++;
+        currentPet.perfectScoresInStage++;
         currentPet.hunger = Math.min(100, currentPet.hunger + 15);
         currentPet.happiness = Math.min(100, currentPet.happiness + 10);
         awardXp("triviaCorrect");
-
-        String oldStage = currentPet.stage;
-        String newStage = savingSystem.getStageForCorrectAnswers(currentPet.correctAnswers);
-        if (!newStage.equals(oldStage)) {
-            currentPet.stage = newStage;
-            showEvolutionMessage(oldStage, newStage);
-        }
+        // checkLevelUp() is called inside awardXp() — checks both tracks
 
         if (savingSystem.isFinalStage(currentPet.stage)) {
             handleGameWon();
+            return;
         }
 
         System.out.println("  Press Enter to continue...");

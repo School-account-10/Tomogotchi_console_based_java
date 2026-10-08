@@ -6,6 +6,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -154,8 +157,28 @@ public class SavingSystem {
         return Boolean.parseBoolean(json.substring(start, end).trim());
     }
 
+    /**
+     * Escapes a string for safe inclusion in a JSON value.
+     */
     private String escapeJson(String s) {
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
+        if (s == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '\\': sb.append("\\\\"); break;
+                case '"':  sb.append("\\\""); break;
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                case '\t': sb.append("\\t"); break;
+                case '\b': sb.append("\\b"); break;
+                case '\f': sb.append("\\f"); break;
+                default:
+                    if (c < 0x20) sb.append(String.format("\\u%04x", (int) c));
+                    else sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     public void savePet(Starter.Pet pet) {
@@ -185,6 +208,7 @@ public class SavingSystem {
             "  \"petType\": \"" + escapeJson(pet.petType != null ? pet.petType : "") + "\",\n" +
             "  \"hearts\": " + pet.hearts + ",\n" +
             "  \"correctAnswers\": " + pet.correctAnswers + ",\n" +
+            "  \"perfectScoresInStage\": " + pet.perfectScoresInStage + ",\n" +
             "  \"xp\": " + pet.xp + ",\n" +
             "  \"stage\": \"" + escapeJson(pet.stage != null ? pet.stage : "egg") + "\"\n" +
             "}";
@@ -223,6 +247,7 @@ public class SavingSystem {
         pet.petType = extractJsonString(content, "petType");
         pet.hearts = extractJsonInt(content, "hearts");
         pet.correctAnswers = extractJsonInt(content, "correctAnswers");
+        pet.perfectScoresInStage = extractJsonInt(content, "perfectScoresInStage");
         pet.xp = extractJsonInt(content, "xp");
         pet.stage = extractJsonString(content, "stage");
         return pet;
@@ -382,8 +407,6 @@ public class SavingSystem {
             String[] kv = pair.split(":");
             if (kv.length == 2) {
                 String key = kv[0].trim().replaceAll("\"", "");
-
-
                 int val = Integer.parseInt(kv[1].trim());
                 rewards.put(key, val);
             }
@@ -412,41 +435,45 @@ public class SavingSystem {
         return (int) Math.max(1, Math.round(base * multiplier));
     }
 
-    // ---- Chat Rate Limiting ----
+    // ---- Chat Rate Limiting (per-pet) ----
     private static final int MAX_CHAT_INTERACTIONS = 6;
     private static final long CHAT_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 hours
 
-    public boolean canChat() {
-        List<Long> timestamps = loadChatTimestamps();
+    private Path getChatTimestampFile(Starter.Pet pet) {
+        String safeOwner = pet.ownerName != null ? pet.ownerName.replaceAll("[^a-zA-Z0-9]", "_") : "unknown";
+        String safePet = pet.petName != null ? pet.petName.replaceAll("[^a-zA-Z0-9]", "_") : "pet";
+        return Paths.get(System.getProperty("user.dir"), "saves", "chat_timestamps_" + safeOwner + "_" + safePet + ".json");
+    }
+
+    public boolean canChat(Starter.Pet pet) {
+        List<Long> timestamps = loadChatTimestamps(pet);
         long now = System.currentTimeMillis();
-        // Remove timestamps older than 4 hours
         timestamps.removeIf(t -> (now - t) > CHAT_COOLDOWN_MS);
-        saveChatTimestamps(timestamps);
+        saveChatTimestamps(timestamps, pet);
         return timestamps.size() < MAX_CHAT_INTERACTIONS;
     }
 
-    public int getRemainingChatSlots() {
-        List<Long> timestamps = loadChatTimestamps();
+    public int getRemainingChatSlots(Starter.Pet pet) {
+        List<Long> timestamps = loadChatTimestamps(pet);
         long now = System.currentTimeMillis();
         timestamps.removeIf(t -> (now - t) > CHAT_COOLDOWN_MS);
-        saveChatTimestamps(timestamps);
+        saveChatTimestamps(timestamps, pet);
         return Math.max(0, MAX_CHAT_INTERACTIONS - timestamps.size());
     }
 
-    public void recordChatInteraction() {
-        List<Long> timestamps = loadChatTimestamps();
+    public void recordChatInteraction(Starter.Pet pet) {
+        List<Long> timestamps = loadChatTimestamps(pet);
         long now = System.currentTimeMillis();
         timestamps.add(now);
-        saveChatTimestamps(timestamps);
+        saveChatTimestamps(timestamps, pet);
     }
 
-    private List<Long> loadChatTimestamps() {
-        Path chatFile = Paths.get(System.getProperty("user.dir"), "saves", "chat_timestamps.json");
+    private List<Long> loadChatTimestamps(Starter.Pet pet) {
+        Path chatFile = getChatTimestampFile(pet);
         List<Long> timestamps = new ArrayList<>();
         try {
             if (Files.exists(chatFile)) {
                 String content = new String(Files.readAllBytes(chatFile));
-                // Simple parsing: ["timestamp1","timestamp2",...]
                 content = content.trim();
                 if (content.startsWith("[") && content.endsWith("]")) {
                     content = content.substring(1, content.length() - 1);
@@ -464,9 +491,9 @@ public class SavingSystem {
         return timestamps;
     }
 
-    private void saveChatTimestamps(List<Long> timestamps) {
+    private void saveChatTimestamps(List<Long> timestamps, Starter.Pet pet) {
         try {
-            Path chatFile = Paths.get(System.getProperty("user.dir"), "saves", "chat_timestamps.json");
+            Path chatFile = getChatTimestampFile(pet);
             Files.createDirectories(chatFile.getParent());
             StringBuilder sb = new StringBuilder("[");
             for (int i = 0; i < timestamps.size(); i++) {
@@ -554,25 +581,165 @@ public class SavingSystem {
         try {
             String personality = (String) extractPetPersonality(pet.petType).getOrDefault("personality", "friendly");
             String prompt = "You are " + pet.petName + ", a " + personality + " " + pet.petType + ". Do not talk about complicated topics. Respond to: " + userMessage;
-            ProcessBuilder pb = new ProcessBuilder("ollama", "run", SystemCheck.chatModel, prompt);
-            Process p = pb.start();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-            StringBuilder output = new StringBuilder();
+
+            // Preload model if not already loaded
+            preloadOllamaModel();
+
+            URL url = new URL("http://localhost:11434/api/generate");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(120000);
+
+            String jsonBody = "{\"model\":\"" + SystemCheck.chatModel + "\",\"prompt\":\"" + escapeJson(prompt) + "\",\"stream\":false}";
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(jsonBody.getBytes("UTF-8"));
+            }
+
+            int status = conn.getResponseCode();
+            if (status != 200) {
+                return "Sorry, Ollama returned error " + status;
+            }
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+            StringBuilder response = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) {
-                output.append(line).append("\n");
+                response.append(line);
             }
-            p.waitFor();
-            String result = output.toString().trim();
+            reader.close();
+            conn.disconnect();
+
+            String result = extractJsonField(response.toString(), "response");
+            if (result == null || result.isEmpty()) {
+                return "Sorry, I couldn't process that.";
+            }
+
             // Limit to 600 tokens (~2400 chars)
             if (result.length() > 2400) {
                 result = result.substring(0, 2400);
                 int lastSpace = result.lastIndexOf(' ');
                 if (lastSpace > 2000) result = result.substring(0, lastSpace);
             }
-            return result;
+            return result.trim();
         } catch (Exception e) {
             return "Sorry, I couldn't process that.";
+        }
+    }
+
+    /**
+     * Extracts a string value from a JSON response body.
+     * Handles both "key": "value" and "key":"value" (Ollama format).
+     * Properly handles escaped quotes inside the value.
+     */
+    public String extractJsonField(String json, String key) {
+        // Search for "key": or "key": (Ollama returns no space after colon)
+        String search = "\"" + key + "\":";
+        int start = json.indexOf(search);
+        if (start == -1) return null;
+        start += search.length();
+
+        // Skip optional whitespace
+        while (start < json.length() && json.charAt(start) == ' ') start++;
+
+        // Expect opening quote
+        if (start >= json.length() || json.charAt(start) != '"') return null;
+        start++; // skip opening quote
+
+        // Walk through the string, respecting backslash escapes
+        StringBuilder value = new StringBuilder();
+        boolean escaped = false;
+        for (int i = start; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (escaped) {
+                switch (c) {
+                    case 'n':  value.append('\n'); break;
+                    case 'r':  value.append('\r'); break;
+                    case 't':  value.append('\t'); break;
+                    case '"':  value.append('"'); break;
+                    case '\\': value.append('\\'); break;
+                    case 'u':
+                        if (i + 4 < json.length()) {
+                            try {
+                                value.append((char) Integer.parseInt(json.substring(i + 1, i + 5), 16));
+                            } catch (NumberFormatException e) {
+                                value.append('u');
+                            }
+                            i += 4;
+                        } else {
+                            value.append('u');
+                        }
+                        break;
+                    default: value.append(c);
+                }
+                escaped = false;
+            } else if (c == '\\') {
+                escaped = true;
+            } else if (c == '"') {
+                // End of string
+                return value.toString();
+            } else {
+                value.append(c);
+            }
+        }
+        return value.toString();
+    }
+
+    /**
+     * Checks if a model is currently loaded in Ollama memory.
+     */
+    public boolean isModelLoaded(String modelName) {
+        try {
+            URL url = new URL("http://localhost:11434/api/ps");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(10000);
+
+            if (conn.getResponseCode() != 200) return false;
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+            reader.close();
+            conn.disconnect();
+
+            return response.toString().contains("\"" + modelName + "\"");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Preloads the chat model into Ollama memory by triggering a minimal generate call.
+     * Only runs if the model is not already loaded.
+     */
+    public void preloadOllamaModel() {
+        try {
+            if (isModelLoaded(SystemCheck.chatModel)) return;
+
+            URL url = new URL("http://localhost:11434/api/generate");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(30000);
+
+            String jsonBody = "{\"model\":\"" + SystemCheck.chatModel + "\",\"prompt\":\"hi\",\"stream\":false}";
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(jsonBody.getBytes("UTF-8"));
+            }
+
+            conn.getResponseCode(); // trigger the load
+            conn.disconnect();
+        } catch (Exception e) {
+            // silently fail — model will load on first real request
         }
     }
 

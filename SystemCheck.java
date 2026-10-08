@@ -162,7 +162,7 @@ public class SystemCheck {
             }
             p.waitFor();
             String ollamaOutput = output.toString();
-            for (String l : ollamaOutput.split("\n")) {
+            for (String l : ollamaOutput.split("\s+")) {
                 l = l.trim();
                 if (l.isEmpty() || l.startsWith("NAME") || l.startsWith("---")) continue;
                 String[] parts = l.split("\s+");
@@ -172,14 +172,22 @@ public class SystemCheck {
             System.out.println("  Error listing models: " + e.getMessage());
         }
 
+        // Filter to only chat-capable models (exclude embedding/OCR)
+        List<String> chatModels = new ArrayList<>();
+        for (String m : models) {
+            if (isChatCapableModel(m)) {
+                chatModels.add(m);
+            }
+        }
+
         // Show model options
         System.out.println();
         System.out.println("  ==========================================");
         System.out.println("           AVAILABLE MODELS");
         System.out.println("  ==========================================");
         System.out.println();
-        if (models.isEmpty()) {
-            System.out.println("  No models found. Chat will use JSON fallback.");
+        if (chatModels.isEmpty()) {
+            System.out.println("  No chat-capable models found. Chat will use JSON fallback.");
             chatUseOllama = false;
         } else {
             java.util.Map<String, String> modelDesc = new java.util.HashMap<>();
@@ -188,24 +196,35 @@ public class SystemCheck {
             modelDesc.put("nomic-embed-text:latest", "Text embeddings");
             modelDesc.put("glm-ocr:q8_0", "OCR / image text");
             modelDesc.put("nomic-embed-text-v2-moe:latest", "Advanced embeddings");
-            for (int i = 0; i < models.size(); i++) {
-                String m = models.get(i);
+            for (int i = 0; i < chatModels.size(); i++) {
+                String m = chatModels.get(i);
                 String desc = modelDesc.getOrDefault(m, "Chat model");
                 System.out.println("    " + (i + 1) + ". " + m + " - " + desc);
             }
             System.out.println();
-            System.out.print("  Choose a model (1-" + models.size() + "): ");
+            System.out.print("  Choose a model (1-" + chatModels.size() + "): ");
             while (true) {
                 try {
                     int idx = Integer.parseInt(SCANNER.nextLine().trim()) - 1;
-                    if (idx >= 0 && idx < models.size()) {
-                        chatModel = models.get(idx);
+                    if (idx >= 0 && idx < chatModels.size()) {
+                        chatModel = chatModels.get(idx);
                         System.out.println("  Using model: " + chatModel);
+                        // Preload model into memory
+                        System.out.print("  Loading model into memory...");
+                        try {
+                            ProcessBuilder preloadPb = new ProcessBuilder("ollama", "run", chatModel, "hi");
+                            preloadPb.redirectErrorStream(true);
+                            Process preloadP = preloadPb.start();
+                            preloadP.waitFor();
+                            System.out.println(" done!");
+                        } catch (Exception e) {
+                            System.out.println(" (will load on first chat)");
+                        }
                         break;
                     }
-                    System.out.print("  Invalid choice. Try again (1-" + models.size() + "): ");
+                    System.out.print("  Invalid choice. Try again (1-" + chatModels.size() + "): ");
                 } catch (NumberFormatException e) {
-                    System.out.print("  Invalid choice. Try again (1-" + models.size() + "): ");
+                    System.out.print("  Invalid choice. Try again (1-" + chatModels.size() + "): ");
                 }
             }
         }
@@ -219,10 +238,22 @@ public class SystemCheck {
             return;
         }
         chatEnabled = true;
-        chatUseOllama = !models.isEmpty();
+        chatUseOllama = !chatModels.isEmpty();
 
         System.out.println("  Chat enabled with " + chatModel + "!");
     }
+
+    /**
+     * Checks if a model can generate text (excludes embedding/OCR models).
+     */
+    public static boolean isChatCapableModel(String modelName) {
+        if (modelName == null) return false;
+        String lower = modelName.toLowerCase();
+        // Exclude known non-chat model families
+        if (lower.contains("embedding") || lower.contains("ocr")) return false;
+        return true;
+    }
+
     private static boolean runCodeBackupCheck(Scanner scanner) {
         Path backupDir = Paths.get(System.getProperty("user.dir"), BACKUP_DIR);
         Path backupPath = backupDir.resolve(BACKUP_FILE);
@@ -484,70 +515,6 @@ public class SystemCheck {
         return sb.toString();
     }
 
-    private static String extractJsonFileContent(String json, String key) {
-        String prefix = "\"" + key + "\": \"";
-        for (String line : json.split("\n", -1)) {
-            String trimmed = line.trim();
-            if (trimmed.startsWith(prefix)) {
-                String value = trimmed.substring(prefix.length());
-                if (value.endsWith(",")) value = value.substring(0, value.length() - 1);
-                if (value.endsWith("\"")) value = value.substring(0, value.length() - 1);
-                return unescapeJson(value);
-            }
-        }
-        return null;
-    }
-
-    private static String unescapeJson(String s) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c == '\\' && i + 1 < s.length()) {
-                i++;
-                char e = s.charAt(i);
-                switch (e) {
-                    case 'n':  sb.append('\n'); break;
-                    case 'r':  sb.append('\r'); break;
-                    case 't':  sb.append('\t'); break;
-                    case '"':  sb.append('"');  break;
-                    case '\\': sb.append('\\'); break;
-                    case 'u':
-                        if (i + 4 < s.length()) {
-                            sb.append((char) Integer.parseInt(s.substring(i + 1, i + 5), 16));
-                            i += 4;
-                        } else {
-                            sb.append('u');
-                        }
-                        break;
-                    default: sb.append(e);
-                }
-            } else {
-                sb.append(c);
-            }
-        }
-        return sb.toString();
-    }
-
-    private static List<String> extractBackupFileNames(String json) {
-        List<String> names = new ArrayList<>();
-        boolean inFiles = false;
-        for (String line : json.split("\n", -1)) {
-            String trimmed = line.trim();
-            if (trimmed.startsWith("\"files\": {")) {
-                inFiles = true;
-                continue;
-            }
-            if (inFiles) {
-                if (trimmed.equals("}")) break;
-                int colon = trimmed.indexOf(":");
-                if (colon > 0 && trimmed.startsWith("\"")) {
-                    names.add(trimmed.substring(1, colon - 1));
-                }
-            }
-        }
-        return names;
-    }
-
     private static String extractJsonStringField(String json, String key) {
         String search = "\"" + key + "\": \"";
         int start = json.indexOf(search);
@@ -558,37 +525,58 @@ public class SystemCheck {
         return json.substring(start, end);
     }
 
-    private static String diffLines(String oldText, String newText) {
-        String[] a = oldText.split("\n", -1);
-        String[] b = newText.split("\n", -1);
-        int n = a.length, m = b.length;
-        int[][] dp = new int[n + 1][m + 1];
-        for (int i = n - 1; i >= 0; i--) {
-            for (int j = m - 1; j >= 0; j--) {
-                dp[i][j] = a[i].equals(b[j]) ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    private static String extractJsonFileContent(String json, String filename) {
+        String search = "\"" + filename + "\": \"";
+        int start = json.indexOf(search);
+        if (start == -1) return null;
+        start += search.length();
+        int end = json.indexOf("\"", start);
+        if (end == -1) return null;
+        return json.substring(start, end);
+    }
+
+    private static List<String> extractBackupFileNames(String json) {
+        List<String> files = new ArrayList<>();
+        String search = "\"files\": {";
+        int start = json.indexOf(search);
+        if (start == -1) return files;
+        start += search.length();
+        int end = json.indexOf("}", start);
+        if (end == -1) return files;
+        String obj = json.substring(start, end);
+        String[] pairs = obj.split(",");
+        for (String pair : pairs) {
+            String[] kv = pair.split(":");
+            if (kv.length == 2) {
+                String key = kv[0].trim().replaceAll("\"", "");
+                files.add(key);
             }
         }
-        StringBuilder sb = new StringBuilder();
-        int i = 0, j = 0;
-        while (i < n && j < m) {
-            if (a[i].equals(b[j])) {
-                i++; j++;
-            } else if (dp[i + 1][j] >= dp[i][j + 1]) {
-                sb.append("    - ").append(a[i]).append("\n");
-                i++;
-            } else {
-                sb.append("    + ").append(b[j]).append("\n");
-                j++;
+        return files;
+    }
+
+    private static String diffLines(String oldContent, String newContent) {
+        StringBuilder diff = new StringBuilder();
+        String[] oldLines = oldContent.split("\n");
+        String[] newLines = newContent.split("\n");
+        int maxLines = Math.max(oldLines.length, newLines.length);
+        for (int i = 0; i < maxLines; i++) {
+            String oldLine = i < oldLines.length ? oldLines[i] : "";
+            String newLine = i < newLines.length ? newLines[i] : "";
+            if (!oldLine.equals(newLine)) {
+                diff.append("  - ").append(oldLine).append("\n");
+                diff.append("  + ").append(newLine).append("\n");
             }
         }
-        while (i < n) { sb.append("    - ").append(a[i]).append("\n"); i++; }
-        while (j < m) { sb.append("    + ").append(b[j]).append("\n"); j++; }
-        if (sb.length() == 0) sb.append("    (no line differences - encoding/whitespace only)\n");
-        return sb.toString();
+        return diff.toString();
     }
 
     private static String generateCode() {
         Random rnd = new Random();
-        return String.valueOf(1000 + rnd.nextInt(9000));
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 6; i++) {
+            sb.append((char) ('A' + rnd.nextInt(26)));
+        }
+        return sb.toString();
     }
 }
