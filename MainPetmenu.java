@@ -182,9 +182,7 @@ public class MainPetmenu {
         printBoxCentered("🐾 " + pet.petName + " 🐾");
         List<String> sprite = savingSystem.getSprite(pet.petType.toLowerCase(), pet.stage);
         if (!sprite.isEmpty()) {
-            for (String s : sprite) {
-                printBoxCentered(s);
-            }
+            printSpriteBlock(sprite);
         }
         printBoxDivider();
         printBoxLine(String.format("%-8s %s", "Name:", pet.petName));
@@ -218,8 +216,26 @@ public class MainPetmenu {
             printBoxLine("  (no sprite for " + petType + ")");
             return;
         }
-        for (String line : sprite) {
-            printBoxLine("  " + line);
+        printSpriteBlock(sprite);
+    }
+
+    private static void printSpriteBlock(List<String> sprite) {
+        if (sprite.isEmpty()) return;
+        int maxWidth = 0;
+        for (String s : sprite) {
+            maxWidth = Math.max(maxWidth, getDisplayWidth(s));
+        }
+        if (maxWidth > BOX_WIDTH) {
+            for (String s : sprite) {
+                printBoxLine("  " + s);
+            }
+            return;
+        }
+        int total = Math.max(0, BOX_WIDTH - maxWidth);
+        int left = total / 2;
+        for (String s : sprite) {
+            String padded = s + " ".repeat(maxWidth - getDisplayWidth(s));
+            System.out.println("║" + fitToWidth(" ".repeat(left) + padded, BOX_WIDTH) + "║");
         }
     }
 
