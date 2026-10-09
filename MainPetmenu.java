@@ -16,7 +16,7 @@ public class MainPetmenu {
     private static Map<String, Object> currentPersonality;
     private static boolean renderWindows = true;
 
-    private static final int BOX_WIDTH = 50;
+    private static int BOX_WIDTH = 50;
 
     private static int getDisplayWidth(String s) {
         int w = 0;
@@ -162,7 +162,7 @@ public class MainPetmenu {
         printBoxTop();
         printBoxCentered("PET");
         printBoxDivider();
-        printSprite(pet.petType);
+        printSprite(pet.petType, pet.stage);
         printBoxDivider();
         printBoxCentered("📊 PET STATUS");
         printBoxDivider();
@@ -180,7 +180,7 @@ public class MainPetmenu {
         System.out.println();
         printBoxTop();
         printBoxCentered("🐾 " + pet.petName + " 🐾");
-        List<String> sprite = savingSystem.getSprite(pet.petType.toLowerCase());
+        List<String> sprite = savingSystem.getSprite(pet.petType.toLowerCase(), pet.stage);
         if (!sprite.isEmpty()) {
             for (String s : sprite) {
                 printBoxCentered(s);
@@ -212,8 +212,8 @@ public class MainPetmenu {
         printBoxBottom();
     }
 
-    private static void printSprite(String petType) {
-        List<String> sprite = savingSystem.getSprite(petType.toLowerCase());
+    private static void printSprite(String petType, String stage) {
+        List<String> sprite = savingSystem.getSprite(petType.toLowerCase(), stage);
         if (sprite.isEmpty()) {
             printBoxLine("  (no sprite for " + petType + ")");
             return;
@@ -340,6 +340,7 @@ public class MainPetmenu {
 
     private static void gameLoop() {
         while (true) {
+            renderWindows = true; // reset so pet/status windows return after View Stats suppressed them
             if (renderWindows) {
                 printPetStatus(currentPet);
             }
@@ -517,36 +518,103 @@ public class MainPetmenu {
     // ---- Trivia ----
 
     private static void playTrivia() {
-        if (currentPet.hearts <= 0) {
-            handleNoHearts();
-            return;
-        }
-
-        Map<String, Object> question = getRandomQuestion();
-        if (question == null) {
-            System.out.println("  ⚠ No trivia questions available.");
-            return;
-        }
-
         clearConsole();
         printBoxTop();
-        printBoxCentered("🧠 TRIVIA TIME!");
+        printBoxCentered("🧠 TRIVIA");
         printBoxDivider();
-        printBoxLine("Question: " + question.get("question"));
-        printBoxDivider();
-        printBoxLine("Hearts: " + currentPet.hearts + "/5");
-        printBoxLine("Correct Answers: " + currentPet.correctAnswers);
+        printBoxLine("Type 'exit' at any time to return to the menu.");
         printBoxBottom();
-        System.out.println();
-        System.out.print("  Your answer: ");
-        String answer = scanner.nextLine().trim();
+        System.out.println("  Let's play trivia! Press Enter to start.");
+        scanner.nextLine();
 
-        String correctAnswer = (String) question.get("answer");
-        if (answer.equalsIgnoreCase(correctAnswer)) {
-            handleCorrectAnswer();
-        } else {
-            handleWrongAnswer(correctAnswer);
+        while (currentPet.hearts > 0) {
+            Map<String, Object> question = getRandomQuestion();
+            if (question == null) {
+                clearConsole();
+                printBoxTop();
+                printBoxCentered("🧠 SESSION ENDED");
+                printBoxDivider();
+                printBoxLine("No more trivia questions available.");
+                printBoxBottom();
+                System.out.println("  Press Enter to return to the menu.");
+                scanner.nextLine();
+                return;
+            }
+
+            // Adaptive width: long code snippets/questions can exceed 50 chars, so size the
+            // trivia box to fit the widest rendered line: the question (with the "Question: "
+            // prefix) or any choice. We use display width so emoji / wide characters are counted
+            // correctly, and include the 2-space prefix that printBoxLine adds.
+            int originalBoxWidth = BOX_WIDTH;
+            int widest = 0;
+            String[] qLines = question.get("question").toString().split("\n", -1);
+            for (int i = 0; i < qLines.length; i++) {
+                String line = (i == 0) ? "Question: " + qLines[i] : qLines[i];
+                widest = Math.max(widest, getDisplayWidth("  " + line) + 2);
+            }
+            BOX_WIDTH = Math.max(originalBoxWidth, widest);
+
+            clearConsole();
+            printBoxTop();
+            printBoxCentered("🧠 TRIVIA TIME!");
+            printBoxDivider();
+
+            // Split multi-line questions (question + choices) so each line gets its own box borders
+            for (int i = 0; i < qLines.length; i++) {
+                if (i == 0) {
+                    printBoxLine("Question: " + qLines[i]);
+                } else {
+                    printBoxLine(qLines[i]);
+                }
+            }
+
+            printBoxDivider();
+            printBoxLine("Hearts: " + currentPet.hearts + "/5");
+            printBoxLine("Correct Answers: " + currentPet.correctAnswers);
+            printBoxBottom();
+            System.out.println();
+            System.out.print("  Your answer (type 'exit' to quit trivia): ");
+            String answer = scanner.nextLine().trim();
+
+            BOX_WIDTH = originalBoxWidth; // revert width for pet/status windows
+
+            if (answer.equalsIgnoreCase("exit")) {
+                System.out.println("  Exiting trivia session...");
+                return;
+            }
+
+            // Process the answer
+            String correctAnswer = (String) question.get("answer");
+            String oldStage = currentPet.stage;
+            if (answer.equalsIgnoreCase(correctAnswer)) {
+                handleCorrectAnswer();
+            } else {
+                System.out.println();
+                System.out.println("  ❌ Wrong! The answer was: " + correctAnswer);
+                currentPet.hearts--;
+                awardXp("triviaWrong");
+
+                if (currentPet.hearts <= 0) {
+                    handleNoHearts();
+                    return;
+                }
+
+                // If the pet evolved this round, the evolution message is the culminating event —
+                // no conflicting heart-loss line should follow it. Otherwise show the normal
+                // heart loss feedback.
+                if (!oldStage.equals(currentPet.stage)) {
+                    System.out.println("  " + currentPet.petName + " grew despite the mistake!");
+                } else {
+                    System.out.println("  " + currentPet.petName + " loses a heart! Hearts left: " + currentPet.hearts);
+                }
+            }
+
+            // Let the user read the feedback before continuing to the next question
+            System.out.println();
+            System.out.println("  Press Enter for the next question...");
+            scanner.nextLine();
         }
+        // loop ends because the pet ran out of hearts; handleNoHearts() already handled game over
     }
 
     private static Map<String, Object> getRandomQuestion() {
@@ -621,24 +689,10 @@ public class MainPetmenu {
             return;
         }
 
-        System.out.println("  Press Enter to continue...");
-        scanner.nextLine();
+        // No per-round pause here — playTrivia prints "Press Enter for the next question..."
+        // between rounds so the trivia session keeps flowing.
     }
 
-    private static void handleWrongAnswer(String correctAnswer) {
-        System.out.println();
-        System.out.println("  ❌ Wrong! The answer was: " + correctAnswer);
-        currentPet.hearts--;
-        awardXp("triviaWrong");
-        System.out.println("  " + currentPet.petName + " loses a heart! Hearts left: " + currentPet.hearts);
-
-        if (currentPet.hearts <= 0) {
-            handleNoHearts();
-        } else {
-            System.out.println("  Press Enter to continue...");
-            scanner.nextLine();
-        }
-    }
 
     private static void showEvolutionMessage(String oldStage, String newStage) {
         Map<String, Object> stageInfo = savingSystem.getStageInfo(newStage);

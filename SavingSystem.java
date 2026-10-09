@@ -261,6 +261,7 @@ public class SavingSystem {
             if (Files.exists(saveDir)) {
                 Files.list(saveDir)
                     .filter(p -> p.toString().endsWith(".json"))
+                    .filter(p -> !p.getFileName().toString().startsWith("chat_timestamps"))
                     .forEach(p -> saves.add(p.getFileName().toString()));
             }
         } catch (IOException e) {
@@ -419,11 +420,13 @@ public class SavingSystem {
         return rewards.getOrDefault(action, 0);
     }
 
-    // XP = military_time (HHMM) - 0.06 * stage_id
+    // XP = hour_of_day (0-23) - small stage penalty
+    // (was previously broken: HHMM military time gave ~1000+ XP per action)
     public int calculateXpReward(int stageId) {
         LocalTime now = LocalTime.now();
         int militaryTime = now.getHour() * 100 + now.getMinute();
-        double xp = militaryTime - (0.06 * stageId);
+        int hourOfDay = militaryTime / 100;
+        double xp = hourOfDay - (0.06 * stageId);
         return (int) Math.max(1, Math.round(xp));
     }
 
@@ -509,25 +512,31 @@ public class SavingSystem {
 
     // ---- Sprites ----
 
-    public List<String> getSprite(String petType) {
+    public List<String> getSprite(String petType, String stage) {
         String spritesJson = loadConfig("sprites.json");
         if (spritesJson == null) return new ArrayList<>();
-        return parseSprite(spritesJson, petType);
+        return parseSprite(spritesJson, petType, stage);
     }
 
-    private List<String> parseSprite(String json, String petType) {
+    private List<String> parseSprite(String json, String petType, String stage) {
         List<String> lines = new ArrayList<>();
-        String search = "\"" + petType + "\": [";
-        int start = json.indexOf(search);
+        // New nested format: "petType": { "stage": [ "line1", "line2", ... ] }
+        String petSearch = "\"" + petType + "\": {";
+        int start = json.indexOf(petSearch);
         if (start == -1) return lines;
-        start += search.length();
-        int end = json.indexOf("]", start);
+        start += petSearch.length();
+        String stageSearch = "\"" + stage + "\": [";
+        int stageStart = json.indexOf(stageSearch, start);
+        if (stageStart == -1) return lines;
+        stageStart += stageSearch.length();
+        int end = json.indexOf("]", stageStart);
         if (end == -1) return lines;
-        String arrayContent = json.substring(start, end);
+        String arrayContent = json.substring(stageStart, end);
 
-        String[] items = arrayContent.split(",");
-        for (String item : items) {
+        for (String item : arrayContent.split("\n")) {
             item = item.trim();
+            if (item.isEmpty()) continue;
+            item = item.replaceAll(",\\s*$", ""); // drop trailing comma on multi-line JSON arrays
             if (item.startsWith("\"") && item.endsWith("\"")) {
                 String line = item.substring(1, item.length() - 1);
                 line = unescapeJson(line);
